@@ -1,0 +1,1353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Advanced AR">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#000000">
+    
+    <title>WebAR - Advanced Surface Detection</title>
+    
+    <!-- A-Frame and AR.js -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #00ff00;
+            overflow: hidden;
+        }
+        
+        .ui-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
+        .terminal-header {
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.9);
+            border-bottom: 2px solid #00ff00;
+            padding: 10px 20px;
+            pointer-events: auto;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .terminal-title {
+            font-size: 18px;
+            font-weight: bold;
+            color: #00ff00;
+        }
+        
+        .terminal-status {
+            display: flex;
+            align-items: center;
+            gap: 20px;
+        }
+        
+        .status-indicator {
+            width: 12px;
+            height: 12px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 8px;
+        }
+        
+        .status-active {
+            background: #00ff00;
+            box-shadow: 0 0 8px #00ff00;
+        }
+        
+        .status-inactive {
+            background: #ff0000;
+        }
+        
+        .status-warning {
+            background: #ffff00;
+        }
+        
+        .control-panel {
+            position: absolute;
+            top: 80px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            pointer-events: auto;
+            max-width: 300px;
+            max-height: 70vh;
+            overflow-y: auto;
+        }
+        
+        .control-section {
+            margin: 15px 0;
+            padding: 10px;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+        }
+        
+        .control-section h4 {
+            margin-bottom: 10px;
+            color: #00ff00;
+            font-size: 14px;
+        }
+        
+        .control-group {
+            margin: 10px 0;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+        
+        .control-group input,
+        .control-group select {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 5px;
+            border-radius: 3px;
+            width: 100%;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        
+        .control-group button {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 6px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            margin: 3px 3px 3px 0;
+            transition: all 0.3s;
+        }
+        
+        .control-group button:hover {
+            background: #00ff00;
+            color: #000;
+        }
+        
+        .control-group button.active {
+            background: #00ff00;
+            color: #000;
+        }
+        
+        .gesture-panel {
+            position: absolute;
+            top: 80px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            pointer-events: auto;
+            max-width: 280px;
+        }
+        
+        .gesture-mode {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin: 10px 0;
+            padding: 8px;
+            border: 1px solid #00ff00;
+            border-radius: 3px;
+        }
+        
+        .gesture-mode.active {
+            background: rgba(0, 255, 0, 0.2);
+            border-color: #00ff00;
+        }
+        
+        .gesture-mode.inactive {
+            background: rgba(255, 0, 0, 0.1);
+            border-color: #ff0000;
+        }
+        
+        .gesture-info {
+            font-size: 11px;
+            color: #888;
+            margin-top: 5px;
+        }
+        
+        .object-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            pointer-events: auto;
+            max-width: 300px;
+        }
+        
+        .object-list {
+            max-height: 200px;
+            overflow-y: auto;
+            margin: 10px 0;
+        }
+        
+        .object-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px;
+            margin: 5px 0;
+            border: 1px solid #00ff00;
+            border-radius: 3px;
+            background: rgba(0, 0, 0, 0.5);
+        }
+        
+        .object-item.selected {
+            background: rgba(0, 255, 0, 0.2);
+            border-color: #00ff00;
+        }
+        
+        .object-item button {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+            margin-left: 5px;
+        }
+        
+        .object-item button:hover {
+            background: #00ff00;
+            color: #000;
+        }
+        
+        .instructions-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            pointer-events: auto;
+            max-width: 350px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .instructions-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .minimize-btn {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 10px;
+        }
+        
+        .instructions-content {
+            font-size: 11px;
+            line-height: 1.4;
+        }
+        
+        .instructions-content.minimized {
+            display: none;
+        }
+        
+        .surface-marker {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            background: rgba(0, 255, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 50%;
+            pointer-events: none;
+            z-index: 500;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 1; }
+            50% { transform: scale(1.2); opacity: 0.7; }
+            100% { transform: scale(1); opacity: 1; }
+        }
+        
+        .debug-panel {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 20px;
+            pointer-events: auto;
+            text-align: center;
+            display: none;
+            max-width: 400px;
+        }
+        
+        .debug-panel.show {
+            display: block;
+        }
+        
+        .debug-info {
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .loading-text {
+            color: #00ff00;
+            font-size: 24px;
+            text-align: center;
+        }
+        
+        .spinner {
+            border: 4px solid #333;
+            border-top: 4px solid #00ff00;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .error-message {
+            color: #ff0000;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+        
+        .success-message {
+            color: #00ff00;
+            font-size: 12px;
+            margin: 10px 0;
+        }
+        
+        .crosshair {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 20px;
+            height: 20px;
+            pointer-events: none;
+            z-index: 400;
+        }
+        
+        .crosshair::before,
+        .crosshair::after {
+            content: '';
+            position: absolute;
+            background: #00ff00;
+        }
+        
+        .crosshair::before {
+            width: 2px;
+            height: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+        }
+        
+        .crosshair::after {
+            width: 20px;
+            height: 2px;
+            top: 50%;
+            transform: translateY(-50%);
+        }
+        
+        .crosshair.active {
+            animation: crosshair-pulse 1s infinite;
+        }
+        
+        @keyframes crosshair-pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading" id="loadingScreen">
+        <div class="loading-text">
+            <div class="spinner"></div>
+            <div>Initializing Advanced AR...</div>
+            <div style="font-size: 14px; margin-top: 10px;">Please allow camera and sensor access</div>
+        </div>
+    </div>
+
+    <!-- Main AR Scene -->
+    <a-scene
+        vr-mode-ui="enabled: false"
+        arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+        renderer="logarithmicDepthBuffer: true;"
+        embedded
+        loading-screen="enabled: false">
+        
+        <!-- AR Camera -->
+        <a-entity camera></a-entity>
+        
+        <!-- Surface Detection Plane -->
+        <a-plane
+            id="surfacePlane"
+            position="0 0 0"
+            rotation="-90 0 0"
+            width="10"
+            height="10"
+            material="color: #00ff00; opacity: 0.3; transparent: true;"
+            visible="false">
+        </a-plane>
+        
+        <!-- AR Content Container -->
+        <a-entity id="arContentContainer">
+            <!-- Objects will be dynamically added here -->
+        </a-entity>
+        
+        <!-- Environment -->
+        <a-sky color="#000000"></a-sky>
+        <a-light type="ambient" color="#ffffff" intensity="0.5"></a-light>
+        <a-light type="directional" position="0 1 0" color="#ffffff" intensity="0.8"></a-light>
+    </a-scene>
+
+    <!-- UI Overlay -->
+    <div class="ui-overlay">
+        <!-- Terminal Header -->
+        <div class="terminal-header">
+            <div class="terminal-title">ADVANCED AR TERMINAL v2.0</div>
+            <div class="terminal-status">
+                <div>
+                    <span class="status-indicator" id="arStatus"></span>
+                    AR System
+                </div>
+                <div>
+                    <span class="status-indicator" id="surfaceStatus"></span>
+                    Surface Detection
+                </div>
+                <div>
+                    <span class="status-indicator" id="gestureStatus"></span>
+                    Gesture Control
+                </div>
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <h3>AR Controls</h3>
+            
+            <div class="control-section">
+                <h4>Surface Detection</h4>
+                <div class="control-group">
+                    <label>Detection Mode:</label>
+                    <select id="detectionMode">
+                        <option value="mono">Mono</option>
+                        <option value="mono_and_matrix">Mono + Matrix</option>
+                        <option value="matrix">Matrix Only</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Surface Sensitivity:</label>
+                    <input type="range" id="surfaceSensitivity" min="0.1" max="2.0" step="0.1" value="1.0">
+                    <span id="sensitivityValue">1.0</span>
+                </div>
+                <div class="control-group">
+                    <button id="toggleSurfaceDetection">Enable Detection</button>
+                    <button id="clearSurfaces">Clear Surfaces</button>
+                </div>
+            </div>
+            
+            <div class="control-section">
+                <h4>Object Management</h4>
+                <div class="control-group">
+                    <label>Object Type:</label>
+                    <select id="objectType">
+                        <option value="box">Box</option>
+                        <option value="sphere">Sphere</option>
+                        <option value="cylinder">Cylinder</option>
+                        <option value="custom">Custom (testimg.jpg)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Object Size:</label>
+                    <input type="range" id="objectSize" min="0.1" max="2.0" step="0.1" value="1.0">
+                    <span id="sizeValue">1.0</span>
+                </div>
+                <div class="control-group">
+                    <button id="addObject">Add Object</button>
+                    <button id="removeSelected">Remove Selected</button>
+                    <button id="clearAllObjects">Clear All</button>
+                </div>
+            </div>
+            
+            <div class="control-section">
+                <h4>Camera & Rendering</h4>
+                <div class="control-group">
+                    <label>Camera Quality:</label>
+                    <select id="cameraQuality">
+                        <option value="low">Low (640x480)</option>
+                        <option value="medium">Medium (1280x720)</option>
+                        <option value="high">High (1920x1080)</option>
+                    </select>
+                </div>
+                <div class="control-group">
+                    <label>Show Debug Info:</label>
+                    <button id="toggleDebugInfo">Show Debug</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Gesture Control Panel -->
+        <div class="gesture-panel">
+            <h3>Gesture Control</h3>
+            
+            <div class="gesture-mode" id="moveMode">
+                <div>
+                    <strong>Move Mode</strong>
+                    <div class="gesture-info">Drag to move objects</div>
+                </div>
+                <button id="toggleMoveMode">Activate</button>
+            </div>
+            
+            <div class="gesture-mode" id="rotateMode">
+                <div>
+                    <strong>Rotate Mode</strong>
+                    <div class="gesture-info">Drag to rotate objects</div>
+                </div>
+                <button id="toggleRotateMode">Activate</button>
+            </div>
+            
+            <div class="gesture-mode" id="scaleMode">
+                <div>
+                    <strong>Scale Mode</strong>
+                    <div class="gesture-info">Pinch to scale objects</div>
+                </div>
+                <button id="toggleScaleMode">Activate</button>
+            </div>
+            
+            <div class="control-group" style="margin-top: 15px;">
+                <button id="resetGestures">Reset All Modes</button>
+            </div>
+        </div>
+
+        <!-- Object Panel -->
+        <div class="object-panel">
+            <h3>Object List</h3>
+            <div class="object-list" id="objectList">
+                <div style="text-align: center; color: #888; font-size: 12px;">
+                    No objects placed yet
+                </div>
+            </div>
+            <div class="control-group">
+                <button id="exportScene">Export Scene</button>
+                <button id="importScene">Import Scene</button>
+            </div>
+        </div>
+
+        <!-- Instructions Panel -->
+        <div class="instructions-panel">
+            <div class="instructions-header">
+                <h3>Instructions</h3>
+                <button class="minimize-btn" id="minimizeInstructions">_</button>
+            </div>
+            <div class="instructions-content" id="instructionsContent">
+                <div><strong>Surface Detection:</strong></div>
+                <div>• Point camera at flat surfaces</div>
+                <div>• Tap to place objects</div>
+                <div>• Surfaces are highlighted in green</div>
+                <br>
+                <div><strong>Gesture Controls:</strong></div>
+                <div>• Move Mode: Drag to reposition</div>
+                <div>• Rotate Mode: Drag to rotate</div>
+                <div>• Scale Mode: Pinch to resize</div>
+                <br>
+                <div><strong>Object Management:</strong></div>
+                <div>• Select objects from list</div>
+                <div>• Use controls to modify</div>
+                <div>• Export/import scenes</div>
+                <br>
+                <div><strong>Tips:</strong></div>
+                <div>• Good lighting improves detection</div>
+                <div>• Flat, textured surfaces work best</div>
+                <div>• Use crosshair for precise placement</div>
+            </div>
+        </div>
+
+        <!-- Debug Panel -->
+        <div class="debug-panel" id="debugPanel">
+            <h3>Debug Information</h3>
+            <div class="debug-info">
+                <div>Camera Position: <span id="debugCameraPos">--</span></div>
+                <div>Camera Rotation: <span id="debugCameraRot">--</span></div>
+                <div>Surface Count: <span id="debugSurfaceCount">--</span></div>
+                <div>Object Count: <span id="debugObjectCount">--</span></div>
+                <div>FPS: <span id="debugFPS">--</span></div>
+                <div>Memory Usage: <span id="debugMemory">--</span></div>
+            </div>
+            <button id="closeDebugPanel">Close</button>
+        </div>
+
+        <!-- Crosshair -->
+        <div class="crosshair" id="crosshair"></div>
+    </div>
+
+    <script>
+        // Global variables
+        let arScene = null;
+        let surfaceDetectionActive = false;
+        let currentGestureMode = 'none';
+        let placedObjects = [];
+        let selectedObject = null;
+        let surfaceMarkers = [];
+        let isDebugVisible = false;
+        let frameCount = 0;
+        let lastTime = performance.now();
+
+        // DOM elements
+        const loadingScreen = document.getElementById('loadingScreen');
+        const arContentContainer = document.getElementById('arContentContainer');
+        const surfacePlane = document.getElementById('surfacePlane');
+        const crosshair = document.getElementById('crosshair');
+        const debugPanel = document.getElementById('debugPanel');
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeAR();
+            setupEventListeners();
+            setupGestureModes();
+            hideLoadingScreen();
+        });
+
+        // Initialize AR system
+        function initializeAR() {
+            arScene = document.querySelector('a-scene');
+            
+            // Set up AR.js event listeners
+            arScene.addEventListener('loaded', onSceneLoaded);
+            arScene.addEventListener('camera-init', onCameraInit);
+            arScene.addEventListener('camera-stream-initialized', onCameraStreamInit);
+            
+            // Initialize surface detection
+            initializeSurfaceDetection();
+            
+            // Start debug loop
+            startDebugLoop();
+        }
+
+        // Initialize surface detection
+        function initializeSurfaceDetection() {
+            // Set up AR.js surface detection
+            const arjs = arScene.getAttribute('arjs');
+            arjs.detectionMode = 'mono_and_matrix';
+            arjs.matrixCodeType = '3x3';
+            arScene.setAttribute('arjs', arjs);
+            
+            // Listen for surface detection events
+            arScene.addEventListener('markerFound', onMarkerFound);
+            arScene.addEventListener('markerLost', onMarkerLost);
+            
+            // Set up touch events for surface placement
+            setupTouchEvents();
+        }
+
+        // Set up touch events
+        function setupTouchEvents() {
+            let touchStartTime = 0;
+            let touchStartPosition = { x: 0, y: 0 };
+            
+            arScene.addEventListener('touchstart', function(event) {
+                if (event.touches.length === 1) {
+                    touchStartTime = Date.now();
+                    touchStartPosition = {
+                        x: event.touches[0].clientX,
+                        y: event.touches[0].clientY
+                    };
+                }
+            });
+            
+            arScene.addEventListener('touchend', function(event) {
+                if (event.touches.length === 0) {
+                    const touchDuration = Date.now() - touchStartTime;
+                    const touchDistance = Math.sqrt(
+                        Math.pow(event.changedTouches[0].clientX - touchStartPosition.x, 2) +
+                        Math.pow(event.changedTouches[0].clientY - touchStartPosition.y, 2)
+                    );
+                    
+                    // Single tap for object placement
+                    if (touchDuration < 300 && touchDistance < 10) {
+                        handleSurfaceTap(event.changedTouches[0]);
+                    }
+                }
+            });
+            
+            // Multi-touch gestures
+            arScene.addEventListener('touchmove', function(event) {
+                if (event.touches.length === 2 && currentGestureMode === 'scale') {
+                    handlePinchGesture(event);
+                } else if (event.touches.length === 1 && currentGestureMode !== 'none') {
+                    handleDragGesture(event);
+                }
+            });
+        }
+
+        // Handle surface tap
+        function handleSurfaceTap(touch) {
+            if (!surfaceDetectionActive) return;
+            
+            // Get touch position in normalized coordinates
+            const touchX = (touch.clientX / window.innerWidth) * 2 - 1;
+            const touchY = -(touch.clientY / window.innerHeight) * 2 + 1;
+            
+            // Create ray from camera
+            const camera = arScene.camera;
+            const rayDirection = new THREE.Vector3(touchX, touchY, -1);
+            rayDirection.unproject(camera);
+            rayDirection.sub(camera.position).normalize();
+            
+            // Ray intersection with surface plane
+            const plane = new THREE.Plane(new THREE.Vector3(0, 1, 0), 0);
+            const intersection = new THREE.Vector3();
+            const ray = new THREE.Raycaster(camera.position, rayDirection);
+            
+            if (ray.ray.intersectPlane(plane, intersection)) {
+                placeObjectAt(intersection);
+                createSurfaceMarker(intersection);
+            }
+        }
+
+        // Place object at position
+        function placeObjectAt(position) {
+            const objectType = document.getElementById('objectType').value;
+            const objectSize = parseFloat(document.getElementById('objectSize').value);
+            
+            let object;
+            
+            switch (objectType) {
+                case 'box':
+                    object = document.createElement('a-box');
+                    object.setAttribute('width', objectSize);
+                    object.setAttribute('height', objectSize);
+                    object.setAttribute('depth', objectSize);
+                    break;
+                case 'sphere':
+                    object = document.createElement('a-sphere');
+                    object.setAttribute('radius', objectSize / 2);
+                    break;
+                case 'cylinder':
+                    object = document.createElement('a-cylinder');
+                    object.setAttribute('radius', objectSize / 2);
+                    object.setAttribute('height', objectSize);
+                    break;
+                case 'custom':
+                    object = document.createElement('a-box');
+                    object.setAttribute('width', objectSize);
+                    object.setAttribute('height', objectSize);
+                    object.setAttribute('depth', objectSize);
+                    object.setAttribute('material', 'src: testimg.jpg;');
+                    break;
+                default:
+                    object = document.createElement('a-box');
+            }
+            
+            // Set object properties
+            object.setAttribute('position', `${position.x} ${position.y} ${position.z}`);
+            object.setAttribute('material', 'color: #00ff00;');
+            object.setAttribute('class', 'ar-object');
+            object.setAttribute('data-id', Date.now());
+            
+            // Add to scene
+            arContentContainer.appendChild(object);
+            
+            // Store object reference
+            const objectData = {
+                id: object.getAttribute('data-id'),
+                element: object,
+                type: objectType,
+                position: position,
+                rotation: { x: 0, y: 0, z: 0 },
+                scale: { x: 1, y: 1, z: 1 }
+            };
+            
+            placedObjects.push(objectData);
+            updateObjectList();
+            selectObject(objectData);
+            
+            console.log('Object placed at:', position);
+        }
+
+        // Create surface marker
+        function createSurfaceMarker(position) {
+            const marker = document.createElement('div');
+            marker.className = 'surface-marker';
+            marker.style.left = (position.x + 1) * 50 + '%';
+            marker.style.top = (position.z + 1) * 50 + '%';
+            
+            document.body.appendChild(marker);
+            surfaceMarkers.push(marker);
+            
+            // Remove marker after 3 seconds
+            setTimeout(() => {
+                if (marker.parentNode) {
+                    marker.parentNode.removeChild(marker);
+                    const index = surfaceMarkers.indexOf(marker);
+                    if (index > -1) {
+                        surfaceMarkers.splice(index, 1);
+                    }
+                }
+            }, 3000);
+        }
+
+        // Handle pinch gesture for scaling
+        function handlePinchGesture(event) {
+            if (selectedObject && currentGestureMode === 'scale') {
+                const touch1 = event.touches[0];
+                const touch2 = event.touches[1];
+                
+                const currentDistance = Math.sqrt(
+                    Math.pow(touch1.clientX - touch2.clientX, 2) +
+                    Math.pow(touch1.clientY - touch2.clientY, 2)
+                );
+                
+                // Calculate scale factor based on pinch distance
+                const scaleFactor = currentDistance / 100; // Adjust sensitivity
+                const newScale = Math.max(0.1, Math.min(3.0, scaleFactor));
+                
+                selectedObject.element.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
+                selectedObject.scale = { x: newScale, y: newScale, z: newScale };
+            }
+        }
+
+        // Handle drag gesture
+        function handleDragGesture(event) {
+            if (selectedObject && currentGestureMode !== 'none') {
+                const touch = event.touches[0];
+                const touchX = (touch.clientX / window.innerWidth) * 2 - 1;
+                const touchY = -(touch.clientY / window.innerHeight) * 2 + 1;
+                
+                if (currentGestureMode === 'move') {
+                    // Move object
+                    const newPosition = {
+                        x: selectedObject.position.x + touchX * 0.1,
+                        y: selectedObject.position.y,
+                        z: selectedObject.position.z + touchY * 0.1
+                    };
+                    
+                    selectedObject.element.setAttribute('position', `${newPosition.x} ${newPosition.y} ${newPosition.z}`);
+                    selectedObject.position = newPosition;
+                } else if (currentGestureMode === 'rotate') {
+                    // Rotate object
+                    const newRotation = {
+                        x: selectedObject.rotation.x,
+                        y: selectedObject.rotation.y + touchX * 5,
+                        z: selectedObject.rotation.z
+                    };
+                    
+                    selectedObject.element.setAttribute('rotation', `${newRotation.x} ${newRotation.y} ${newRotation.z}`);
+                    selectedObject.rotation = newRotation;
+                }
+            }
+        }
+
+        // Set up gesture modes
+        function setupGestureModes() {
+            const modes = ['move', 'rotate', 'scale'];
+            
+            modes.forEach(mode => {
+                const button = document.getElementById(`toggle${mode.charAt(0).toUpperCase() + mode.slice(1)}Mode`);
+                const modeElement = document.getElementById(`${mode}Mode`);
+                
+                button.addEventListener('click', function() {
+                    if (currentGestureMode === mode) {
+                        deactivateGestureMode(mode);
+                    } else {
+                        activateGestureMode(mode);
+                    }
+                });
+            });
+        }
+
+        // Activate gesture mode
+        function activateGestureMode(mode) {
+            // Deactivate all modes first
+            deactivateAllGestureModes();
+            
+            currentGestureMode = mode;
+            
+            // Update UI
+            const modeElement = document.getElementById(`${mode}Mode`);
+            const button = document.getElementById(`toggle${mode.charAt(0).toUpperCase() + mode.slice(1)}Mode`);
+            
+            modeElement.className = 'gesture-mode active';
+            button.textContent = 'Deactivate';
+            button.className = 'control-group button active';
+            
+            // Update crosshair
+            crosshair.classList.add('active');
+            
+            console.log('Gesture mode activated:', mode);
+        }
+
+        // Deactivate gesture mode
+        function deactivateGestureMode(mode) {
+            if (currentGestureMode === mode) {
+                currentGestureMode = 'none';
+                
+                const modeElement = document.getElementById(`${mode}Mode`);
+                const button = document.getElementById(`toggle${mode.charAt(0).toUpperCase() + mode.slice(1)}Mode`);
+                
+                modeElement.className = 'gesture-mode inactive';
+                button.textContent = 'Activate';
+                button.className = 'control-group button';
+                
+                crosshair.classList.remove('active');
+                
+                console.log('Gesture mode deactivated:', mode);
+            }
+        }
+
+        // Deactivate all gesture modes
+        function deactivateAllGestureModes() {
+            const modes = ['move', 'rotate', 'scale'];
+            modes.forEach(mode => {
+                deactivateGestureMode(mode);
+            });
+        }
+
+        // Select object
+        function selectObject(objectData) {
+            // Deselect previous object
+            if (selectedObject) {
+                selectedObject.element.setAttribute('material', 'color: #00ff00;');
+            }
+            
+            selectedObject = objectData;
+            
+            // Highlight selected object
+            if (selectedObject) {
+                selectedObject.element.setAttribute('material', 'color: #ffff00;');
+                updateObjectList();
+            }
+        }
+
+        // Update object list
+        function updateObjectList() {
+            const objectList = document.getElementById('objectList');
+            objectList.innerHTML = '';
+            
+            if (placedObjects.length === 0) {
+                objectList.innerHTML = '<div style="text-align: center; color: #888; font-size: 12px;">No objects placed yet</div>';
+                return;
+            }
+            
+            placedObjects.forEach(obj => {
+                const objectItem = document.createElement('div');
+                objectItem.className = 'object-item';
+                if (selectedObject && selectedObject.id === obj.id) {
+                    objectItem.classList.add('selected');
+                }
+                
+                objectItem.innerHTML = `
+                    <div>
+                        <strong>${obj.type}</strong><br>
+                        <small>ID: ${obj.id}</small>
+                    </div>
+                    <div>
+                        <button onclick="selectObjectById(${obj.id})">Select</button>
+                        <button onclick="removeObjectById(${obj.id})">Remove</button>
+                    </div>
+                `;
+                
+                objectList.appendChild(objectItem);
+            });
+        }
+
+        // Select object by ID
+        function selectObjectById(id) {
+            const obj = placedObjects.find(o => o.id === id);
+            if (obj) {
+                selectObject(obj);
+            }
+        }
+
+        // Remove object by ID
+        function removeObjectById(id) {
+            const index = placedObjects.findIndex(o => o.id === id);
+            if (index > -1) {
+                const obj = placedObjects[index];
+                
+                // Remove from scene
+                if (obj.element.parentNode) {
+                    obj.element.parentNode.removeChild(obj.element);
+                }
+                
+                // Remove from array
+                placedObjects.splice(index, 1);
+                
+                // Update selection
+                if (selectedObject && selectedObject.id === id) {
+                    selectedObject = null;
+                }
+                
+                updateObjectList();
+                console.log('Object removed:', id);
+            }
+        }
+
+        // Start debug loop
+        function startDebugLoop() {
+            function updateDebug() {
+                frameCount++;
+                const currentTime = performance.now();
+                
+                if (currentTime - lastTime >= 1000) {
+                    const fps = Math.round((frameCount * 1000) / (currentTime - lastTime));
+                    document.getElementById('debugFPS').textContent = fps;
+                    
+                    frameCount = 0;
+                    lastTime = currentTime;
+                }
+                
+                // Update other debug info
+                if (isDebugVisible) {
+                    updateDebugInfo();
+                }
+                
+                requestAnimationFrame(updateDebug);
+            }
+            
+            updateDebug();
+        }
+
+        // Update debug information
+        function updateDebugInfo() {
+            const camera = arScene.camera;
+            if (camera) {
+                const pos = camera.position;
+                const rot = camera.rotation;
+                
+                document.getElementById('debugCameraPos').textContent = 
+                    `${pos.x.toFixed(2)}, ${pos.y.toFixed(2)}, ${pos.z.toFixed(2)}`;
+                document.getElementById('debugCameraRot').textContent = 
+                    `${(rot.x * 180 / Math.PI).toFixed(1)}°, ${(rot.y * 180 / Math.PI).toFixed(1)}°, ${(rot.z * 180 / Math.PI).toFixed(1)}°`;
+            }
+            
+            document.getElementById('debugSurfaceCount').textContent = surfaceMarkers.length;
+            document.getElementById('debugObjectCount').textContent = placedObjects.length;
+            
+            // Memory usage (approximate)
+            if (performance.memory) {
+                const memoryMB = Math.round(performance.memory.usedJSHeapSize / 1024 / 1024);
+                document.getElementById('debugMemory').textContent = memoryMB + ' MB';
+            }
+        }
+
+        // Set up event listeners
+        function setupEventListeners() {
+            // Surface detection controls
+            document.getElementById('toggleSurfaceDetection').addEventListener('click', function() {
+                surfaceDetectionActive = !surfaceDetectionActive;
+                this.textContent = surfaceDetectionActive ? 'Disable Detection' : 'Enable Detection';
+                updateSurfaceStatus();
+            });
+            
+            document.getElementById('clearSurfaces').addEventListener('click', function() {
+                surfaceMarkers.forEach(marker => {
+                    if (marker.parentNode) {
+                        marker.parentNode.removeChild(marker);
+                    }
+                });
+                surfaceMarkers = [];
+                console.log('Surfaces cleared');
+            });
+            
+            // Object management controls
+            document.getElementById('addObject').addEventListener('click', function() {
+                if (surfaceDetectionActive) {
+                    // Add object at center of screen
+                    const position = { x: 0, y: 0, z: -2 };
+                    placeObjectAt(position);
+                } else {
+                    showError('Enable surface detection first');
+                }
+            });
+            
+            document.getElementById('removeSelected').addEventListener('click', function() {
+                if (selectedObject) {
+                    removeObjectById(selectedObject.id);
+                } else {
+                    showError('No object selected');
+                }
+            });
+            
+            document.getElementById('clearAllObjects').addEventListener('click', function() {
+                placedObjects.forEach(obj => {
+                    if (obj.element.parentNode) {
+                        obj.element.parentNode.removeChild(obj.element);
+                    }
+                });
+                placedObjects = [];
+                selectedObject = null;
+                updateObjectList();
+                console.log('All objects cleared');
+            });
+            
+            // Gesture controls
+            document.getElementById('resetGestures').addEventListener('click', function() {
+                deactivateAllGestureModes();
+            });
+            
+            // Debug controls
+            document.getElementById('toggleDebugInfo').addEventListener('click', function() {
+                isDebugVisible = !isDebugVisible;
+                if (isDebugVisible) {
+                    debugPanel.classList.add('show');
+                } else {
+                    debugPanel.classList.remove('show');
+                }
+            });
+            
+            document.getElementById('closeDebugPanel').addEventListener('click', function() {
+                debugPanel.classList.remove('show');
+                isDebugVisible = false;
+            });
+            
+            // Instructions controls
+            document.getElementById('minimizeInstructions').addEventListener('click', function() {
+                const content = document.getElementById('instructionsContent');
+                content.classList.toggle('minimized');
+                this.textContent = content.classList.contains('minimized') ? '+' : '_';
+            });
+            
+            // Slider controls
+            document.getElementById('surfaceSensitivity').addEventListener('input', function() {
+                const value = this.value;
+                document.getElementById('sensitivityValue').textContent = value;
+                // Update AR.js sensitivity if needed
+            });
+            
+            document.getElementById('objectSize').addEventListener('input', function() {
+                const value = this.value;
+                document.getElementById('sizeValue').textContent = value;
+            });
+            
+            // Detection mode change
+            document.getElementById('detectionMode').addEventListener('change', function() {
+                const mode = this.value;
+                const arjs = arScene.getAttribute('arjs');
+                arjs.detectionMode = mode;
+                arScene.setAttribute('arjs', arjs);
+                console.log('Detection mode changed to:', mode);
+            });
+            
+            // Camera quality change
+            document.getElementById('cameraQuality').addEventListener('change', function() {
+                const quality = this.value;
+                // Update camera constraints based on quality
+                console.log('Camera quality changed to:', quality);
+            });
+        }
+
+        // Update surface status
+        function updateSurfaceStatus() {
+            const statusElement = document.getElementById('surfaceStatus');
+            if (surfaceDetectionActive) {
+                statusElement.className = 'status-indicator status-active';
+            } else {
+                statusElement.className = 'status-indicator status-inactive';
+            }
+        }
+
+        // Scene loaded event
+        function onSceneLoaded() {
+            console.log('AR scene loaded');
+            document.getElementById('arStatus').className = 'status-indicator status-active';
+        }
+
+        // Camera initialized event
+        function onCameraInit() {
+            console.log('AR camera initialized');
+        }
+
+        // Camera stream initialized event
+        function onCameraStreamInit() {
+            console.log('AR camera stream initialized');
+        }
+
+        // Marker found event
+        function onMarkerFound(event) {
+            console.log('AR marker found:', event.detail);
+        }
+
+        // Marker lost event
+        function onMarkerLost(event) {
+            console.log('AR marker lost:', event.detail);
+        }
+
+        // Hide loading screen
+        function hideLoadingScreen() {
+            setTimeout(() => {
+                loadingScreen.classList.add('hidden');
+            }, 2000);
+        }
+
+        // Show error message
+        function showError(message) {
+            console.error(message);
+            // You can implement a proper error display UI here
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            console.log(message);
+            // You can implement a proper success display UI here
+        }
+
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                console.log('Page hidden - pausing AR');
+            } else {
+                console.log('Page visible - resuming AR');
+            }
+        });
+
+        // Handle page unload
+        window.addEventListener('beforeunload', function() {
+            console.log('Cleaning up AR system');
+        });
+
+        // Export scene data
+        function exportScene() {
+            const sceneData = {
+                objects: placedObjects.map(obj => ({
+                    type: obj.type,
+                    position: obj.position,
+                    rotation: obj.rotation,
+                    scale: obj.scale
+                })),
+                timestamp: Date.now()
+            };
+            
+            const dataStr = JSON.stringify(sceneData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = `ar-scene-${Date.now()}.json`;
+            link.click();
+            
+            console.log('Scene exported');
+        }
+
+        // Import scene data
+        function importScene() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            
+            input.onchange = function(event) {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = function(e) {
+                        try {
+                            const sceneData = JSON.parse(e.target.result);
+                            
+                            // Clear existing objects
+                            placedObjects.forEach(obj => {
+                                if (obj.element.parentNode) {
+                                    obj.element.parentNode.removeChild(obj.element);
+                                }
+                            });
+                            placedObjects = [];
+                            
+                            // Import objects
+                            sceneData.objects.forEach(objData => {
+                                placeObjectAt(objData.position);
+                                const obj = placedObjects[placedObjects.length - 1];
+                                obj.rotation = objData.rotation;
+                                obj.scale = objData.scale;
+                                
+                                obj.element.setAttribute('rotation', `${obj.rotation.x} ${obj.rotation.y} ${obj.rotation.z}`);
+                                obj.element.setAttribute('scale', `${obj.scale.x} ${obj.scale.y} ${obj.scale.z}`);
+                            });
+                            
+                            console.log('Scene imported successfully');
+                        } catch (error) {
+                            console.error('Error importing scene:', error);
+                            showError('Failed to import scene');
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            
+            input.click();
+        }
+
+        // Add export/import event listeners
+        document.addEventListener('DOMContentLoaded', function() {
+            const exportBtn = document.getElementById('exportScene');
+            const importBtn = document.getElementById('importScene');
+            
+            if (exportBtn) exportBtn.addEventListener('click', exportScene);
+            if (importBtn) importBtn.addEventListener('click', importScene);
+        });
+    </script>
+</body>
+</html>

@@ -1,0 +1,679 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="WebAR App">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#000000">
+    
+    <title>WebAR - Main App</title>
+    
+    <!-- A-Frame and AR.js -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #00ff00;
+            overflow: hidden;
+        }
+        
+        .ui-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
+        .status-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            pointer-events: auto;
+            max-width: 300px;
+        }
+        
+        .sensor-data {
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        
+        .location-data {
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        
+        .menu-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            pointer-events: auto;
+            min-width: 250px;
+        }
+        
+        .menu-item {
+            margin: 10px 0;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+        
+        .menu-item label {
+            font-size: 14px;
+            margin-right: 10px;
+        }
+        
+        .menu-item input {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 5px;
+            border-radius: 5px;
+            width: 80px;
+        }
+        
+        .menu-item button {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            transition: all 0.3s;
+        }
+        
+        .menu-item button:hover {
+            background: #00ff00;
+            color: #000;
+        }
+        
+        .camera-toggle {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            pointer-events: auto;
+        }
+        
+        .camera-toggle button {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            font-size: 16px;
+        }
+        
+        .camera-toggle button:hover {
+            background: #00ff00;
+            color: #000;
+        }
+        
+        .ar-status {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            pointer-events: auto;
+            text-align: center;
+        }
+        
+        .status-indicator {
+            width: 20px;
+            height: 20px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 10px;
+        }
+        
+        .status-active {
+            background: #00ff00;
+            box-shadow: 0 0 10px #00ff00;
+        }
+        
+        .status-inactive {
+            background: #ff0000;
+        }
+        
+        .compass-range {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 20px;
+            pointer-events: auto;
+            text-align: center;
+            display: none;
+        }
+        
+        .compass-range.show {
+            display: block;
+        }
+        
+        .compass-display {
+            font-size: 48px;
+            margin: 20px 0;
+            color: #00ff00;
+        }
+        
+        .range-indicator {
+            font-size: 24px;
+            margin: 10px 0;
+        }
+        
+        .range-in {
+            color: #00ff00;
+        }
+        
+        .range-out {
+            color: #ff0000;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .loading-text {
+            color: #00ff00;
+            font-size: 24px;
+            text-align: center;
+        }
+        
+        .spinner {
+            border: 4px solid #333;
+            border-top: 4px solid #00ff00;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading" id="loadingScreen">
+        <div class="loading-text">
+            <div class="spinner"></div>
+            <div>Initializing WebAR...</div>
+            <div style="font-size: 14px; margin-top: 10px;">Please allow camera and sensor access</div>
+        </div>
+    </div>
+
+    <!-- Main AR Scene -->
+    <a-scene
+        vr-mode-ui="enabled: false"
+        arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
+        renderer="logarithmicDepthBuffer: true;"
+        embedded
+        loading-screen="enabled: false">
+        
+        <!-- AR Camera -->
+        <a-entity camera></a-entity>
+        
+        <!-- AR Content Container -->
+        <a-entity id="arContent" position="0 0 -1">
+            <!-- 3D Box with testimg.jpg texture -->
+            <a-box
+                id="arBox"
+                position="0 0.5 0"
+                rotation="0 0 0"
+                width="1"
+                height="1"
+                depth="1"
+                material="src: testimg.jpg;"
+                visible="false"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 10000">
+            </a-box>
+        </a-entity>
+        
+        <!-- AR Marker (optional) -->
+        <a-marker preset="hiro" id="marker">
+            <a-box position="0 0.5 0" rotation="0 0 0" width="1" height="1" depth="1" material="color: #ff0000;"></a-box>
+        </a-marker>
+        
+        <!-- Environment -->
+        <a-sky color="#000000"></a-sky>
+        <a-light type="ambient" color="#ffffff" intensity="0.5"></a-light>
+        <a-light type="directional" position="0 1 0" color="#ffffff" intensity="0.8"></a-light>
+    </a-scene>
+
+    <!-- UI Overlay -->
+    <div class="ui-overlay">
+        <!-- Status Panel -->
+        <div class="status-panel">
+            <h3>Sensor Status</h3>
+            <div class="sensor-data">
+                <div>Compass: <span id="compassValue">--</span>°</div>
+                <div>Accel X: <span id="accelX">--</span></div>
+                <div>Accel Y: <span id="accelY">--</span></div>
+                <div>Accel Z: <span id="accelZ">--</span></div>
+            </div>
+            <div class="location-data">
+                <div>Lat: <span id="latitude">--</span></div>
+                <div>Lng: <span id="longitude">--</span></div>
+                <div>Accuracy: <span id="accuracy">--</span>m</div>
+            </div>
+        </div>
+
+        <!-- Menu Panel -->
+        <div class="menu-panel">
+            <h3>AR Controls</h3>
+            <div class="menu-item">
+                <label>Compass Range:</label>
+                <input type="number" id="compassMin" value="100" min="0" max="360">
+            </div>
+            <div class="menu-item">
+                <label>to:</label>
+                <input type="number" id="compassMax" value="150" min="0" max="360">
+            </div>
+            <div class="menu-item">
+                <button id="updateRange">Update Range</button>
+            </div>
+            <div class="menu-item">
+                <button id="toggleCompassDisplay">Show Compass</button>
+            </div>
+            <div class="menu-item">
+                <button id="resetSensors">Reset Sensors</button>
+            </div>
+        </div>
+
+        <!-- Camera Toggle -->
+        <div class="camera-toggle">
+            <button id="toggleCamera">Toggle Camera</button>
+        </div>
+
+        <!-- AR Status -->
+        <div class="ar-status">
+            <div>AR Status</div>
+            <div class="status-indicator" id="arStatusIndicator"></div>
+            <div id="arStatusText">Initializing</div>
+        </div>
+
+        <!-- Compass Range Display -->
+        <div class="compass-range" id="compassRange">
+            <h3>Compass Range</h3>
+            <div class="compass-display" id="compassDisplay">--</div>
+            <div class="range-indicator" id="rangeIndicator">Out of Range</div>
+            <div>Target: 100° - 150°</div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let compassRange = { min: 100, max: 150 };
+        let sensorData = {
+            compass: 0,
+            accelerometer: { x: 0, y: 0, z: 0 },
+            location: { lat: 0, lng: 0, accuracy: 0 }
+        };
+        let isARActive = false;
+        let isCompassDisplayVisible = false;
+        let cameraVisible = true;
+
+        // DOM elements
+        const loadingScreen = document.getElementById('loadingScreen');
+        const arBox = document.getElementById('arBox');
+        const compassValue = document.getElementById('compassValue');
+        const accelX = document.getElementById('accelX');
+        const accelY = document.getElementById('accelY');
+        const accelZ = document.getElementById('accelZ');
+        const latitude = document.getElementById('latitude');
+        const longitude = document.getElementById('longitude');
+        const accuracy = document.getElementById('accuracy');
+        const arStatusIndicator = document.getElementById('arStatusIndicator');
+        const arStatusText = document.getElementById('arStatusText');
+        const compassRangeElement = document.getElementById('compassRange');
+        const compassDisplay = document.getElementById('compassDisplay');
+        const rangeIndicator = document.getElementById('rangeIndicator');
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSensors();
+            setupEventListeners();
+            hideLoadingScreen();
+        });
+
+        // Initialize sensors and permissions
+        function initializeSensors() {
+            // Request device orientation permission (iOS)
+            if (typeof DeviceOrientationEvent !== 'undefined' && 
+                typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(response => {
+                        if (response === 'granted') {
+                            console.log('Device orientation permission granted');
+                            startCompass();
+                        } else {
+                            console.log('Device orientation permission denied');
+                            showError('Compass access denied. Please enable in settings.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error requesting device orientation permission:', error);
+                        showError('Error accessing compass sensor');
+                    });
+            } else {
+                startCompass();
+            }
+
+            // Start accelerometer
+            startAccelerometer();
+
+            // Start location services
+            startLocationServices();
+        }
+
+        // Start compass sensor
+        function startCompass() {
+            if ('ondeviceorientationabsolute' in window) {
+                window.addEventListener('deviceorientationabsolute', handleCompass);
+            } else if ('ondeviceorientation' in window) {
+                window.addEventListener('deviceorientation', handleCompass);
+            } else {
+                console.warn('Compass not supported');
+                showError('Compass not supported on this device');
+            }
+        }
+
+        // Handle compass data
+        function handleCompass(event) {
+            if (event.alpha !== null) {
+                sensorData.compass = event.alpha;
+                compassValue.textContent = Math.round(sensorData.compass);
+                
+                // Check if compass is in range
+                const inRange = isCompassInRange(sensorData.compass);
+                updateARContent(inRange);
+                
+                // Update compass display if visible
+                if (isCompassDisplayVisible) {
+                    compassDisplay.textContent = Math.round(sensorData.compass);
+                    rangeIndicator.textContent = inRange ? 'IN RANGE' : 'OUT OF RANGE';
+                    rangeIndicator.className = 'range-indicator ' + (inRange ? 'range-in' : 'range-out');
+                }
+            }
+        }
+
+        // Start accelerometer
+        function startAccelerometer() {
+            if ('ondevicemotion' in window) {
+                window.addEventListener('devicemotion', handleAccelerometer);
+            } else {
+                console.warn('Accelerometer not supported');
+            }
+        }
+
+        // Handle accelerometer data
+        function handleAccelerometer(event) {
+            if (event.accelerationIncludingGravity) {
+                const accel = event.accelerationIncludingGravity;
+                sensorData.accelerometer.x = accel.x || 0;
+                sensorData.accelerometer.y = accel.y || 0;
+                sensorData.accelerometer.z = accel.z || 0;
+                
+                accelX.textContent = Math.round(sensorData.accelerometer.x);
+                accelY.textContent = Math.round(sensorData.accelerometer.y);
+                accelZ.textContent = Math.round(sensorData.accelerometer.z);
+            }
+        }
+
+        // Start location services
+        function startLocationServices() {
+            if ('geolocation' in navigator) {
+                navigator.geolocation.getCurrentPosition(
+                    handleLocationSuccess,
+                    handleLocationError,
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 60000
+                    }
+                );
+                
+                // Watch for location changes
+                navigator.geolocation.watchPosition(
+                    handleLocationSuccess,
+                    handleLocationError,
+                    {
+                        enableHighAccuracy: true,
+                        timeout: 10000,
+                        maximumAge: 60000
+                    }
+                );
+            } else {
+                console.warn('Geolocation not supported');
+            }
+        }
+
+        // Handle location success
+        function handleLocationSuccess(position) {
+            sensorData.location.lat = position.coords.latitude;
+            sensorData.location.lng = position.coords.longitude;
+            sensorData.location.accuracy = position.coords.accuracy;
+            
+            latitude.textContent = sensorData.location.lat.toFixed(6);
+            longitude.textContent = sensorData.location.lng.toFixed(6);
+            accuracy.textContent = Math.round(sensorData.location.accuracy);
+        }
+
+        // Handle location error
+        function handleLocationError(error) {
+            console.error('Location error:', error);
+            switch(error.code) {
+                case error.PERMISSION_DENIED:
+                    showError('Location access denied');
+                    break;
+                case error.POSITION_UNAVAILABLE:
+                    showError('Location unavailable');
+                    break;
+                case error.TIMEOUT:
+                    showError('Location timeout');
+                    break;
+                default:
+                    showError('Location error: ' + error.message);
+            }
+        }
+
+        // Check if compass is in range
+        function isCompassInRange(compassValue) {
+            if (compassRange.min <= compassRange.max) {
+                return compassValue >= compassRange.min && compassValue <= compassRange.max;
+            } else {
+                // Handle range that crosses 0°/360°
+                return compassValue >= compassRange.min || compassValue <= compassRange.max;
+            }
+        }
+
+        // Update AR content visibility
+        function updateARContent(inRange) {
+            if (arBox) {
+                arBox.setAttribute('visible', inRange);
+                
+                if (inRange && !isARActive) {
+                    isARActive = true;
+                    updateARStatus(true);
+                } else if (!inRange && isARActive) {
+                    isARActive = false;
+                    updateARStatus(false);
+                }
+            }
+        }
+
+        // Update AR status
+        function updateARStatus(active) {
+            arStatusIndicator.className = 'status-indicator ' + (active ? 'status-active' : 'status-inactive');
+            arStatusText.textContent = active ? 'Active' : 'Inactive';
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Update compass range
+            document.getElementById('updateRange').addEventListener('click', function() {
+                const min = parseInt(document.getElementById('compassMin').value);
+                const max = parseInt(document.getElementById('compassMax').value);
+                
+                if (min >= 0 && max <= 360 && min <= max) {
+                    compassRange.min = min;
+                    compassRange.max = max;
+                    console.log('Compass range updated:', compassRange);
+                } else {
+                    alert('Please enter valid compass range (0-360)');
+                }
+            });
+
+            // Toggle compass display
+            document.getElementById('toggleCompassDisplay').addEventListener('click', function() {
+                isCompassDisplayVisible = !isCompassDisplayVisible;
+                if (isCompassDisplayVisible) {
+                    compassRangeElement.classList.add('show');
+                    this.textContent = 'Hide Compass';
+                } else {
+                    compassRangeElement.classList.remove('show');
+                    this.textContent = 'Show Compass';
+                }
+            });
+
+            // Reset sensors
+            document.getElementById('resetSensors').addEventListener('click', function() {
+                sensorData = {
+                    compass: 0,
+                    accelerometer: { x: 0, y: 0, z: 0 },
+                    location: { lat: 0, lng: 0, accuracy: 0 }
+                };
+                
+                compassValue.textContent = '--';
+                accelX.textContent = '--';
+                accelY.textContent = '--';
+                accelZ.textContent = '--';
+                latitude.textContent = '--';
+                longitude.textContent = '--';
+                accuracy.textContent = '--';
+                
+                console.log('Sensors reset');
+            });
+
+            // Toggle camera
+            document.getElementById('toggleCamera').addEventListener('click', function() {
+                cameraVisible = !cameraVisible;
+                const arScene = document.querySelector('a-scene');
+                
+                if (arScene) {
+                    if (cameraVisible) {
+                        arScene.setAttribute('arjs', 'sourceType: webcam; videoTexture: true;');
+                        this.textContent = 'Hide Camera';
+                    } else {
+                        arScene.setAttribute('arjs', 'sourceType: webcam; videoTexture: false;');
+                        this.textContent = 'Show Camera';
+                    }
+                }
+            });
+        }
+
+        // Hide loading screen
+        function hideLoadingScreen() {
+            setTimeout(() => {
+                loadingScreen.classList.add('hidden');
+            }, 2000);
+        }
+
+        // Show error message
+        function showError(message) {
+            console.error(message);
+            // You can implement a proper error display UI here
+        }
+
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                console.log('Page hidden - pausing sensors');
+            } else {
+                console.log('Page visible - resuming sensors');
+            }
+        });
+
+        // Handle page unload
+        window.addEventListener('beforeunload', function() {
+            console.log('Cleaning up sensors');
+        });
+
+        // A-Frame scene loaded event
+        document.querySelector('a-scene').addEventListener('loaded', function() {
+            console.log('AR scene loaded');
+            updateARStatus(false);
+        });
+
+        // A-Frame camera initialized event
+        document.querySelector('a-scene').addEventListener('camera-init', function() {
+            console.log('AR camera initialized');
+        });
+
+        // A-Frame camera stream initialized event
+        document.querySelector('a-scene').addEventListener('camera-stream-initialized', function() {
+            console.log('AR camera stream initialized');
+        });
+
+        // A-Frame marker found event
+        document.querySelector('a-scene').addEventListener('markerFound', function() {
+            console.log('AR marker found');
+        });
+
+        // A-Frame marker lost event
+        document.querySelector('a-scene').addEventListener('markerLost', function() {
+            console.log('AR marker lost');
+        });
+    </script>
+</body>
+</html>

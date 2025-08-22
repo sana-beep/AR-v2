@@ -1,0 +1,1065 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Sensor Test">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#000000">
+    
+    <title>WebAR - Sensor Test</title>
+    
+    <!-- A-Frame and AR.js -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #00ff00;
+            overflow: hidden;
+        }
+        
+        .ui-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
+        .sensor-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            pointer-events: auto;
+            max-width: 350px;
+        }
+        
+        .sensor-group {
+            margin: 15px 0;
+            padding: 10px;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+        }
+        
+        .sensor-group h4 {
+            margin-bottom: 10px;
+            color: #00ff00;
+        }
+        
+        .sensor-value {
+            font-size: 18px;
+            font-weight: bold;
+            margin: 5px 0;
+        }
+        
+        .sensor-status {
+            display: inline-block;
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            margin-right: 10px;
+        }
+        
+        .status-active {
+            background: #00ff00;
+            box-shadow: 0 0 5px #00ff00;
+        }
+        
+        .status-inactive {
+            background: #ff0000;
+        }
+        
+        .status-warning {
+            background: #ffff00;
+        }
+        
+        .control-panel {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            pointer-events: auto;
+            max-width: 300px;
+        }
+        
+        .control-group {
+            margin: 15px 0;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .control-group input {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 5px;
+            border-radius: 5px;
+            width: 100%;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .control-group button {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            margin: 5px 5px 5px 0;
+            transition: all 0.3s;
+        }
+        
+        .control-group button:hover {
+            background: #00ff00;
+            color: #000;
+        }
+        
+        .joystick-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            pointer-events: auto;
+            text-align: center;
+        }
+        
+        .joystick-container {
+            display: flex;
+            justify-content: space-around;
+            margin: 15px 0;
+        }
+        
+        .joystick {
+            width: 80px;
+            height: 80px;
+            border: 2px solid #00ff00;
+            border-radius: 50%;
+            position: relative;
+            background: rgba(0, 0, 0, 0.5);
+            cursor: pointer;
+            touch-action: none;
+        }
+        
+        .joystick-knob {
+            width: 20px;
+            height: 20px;
+            background: #00ff00;
+            border-radius: 50%;
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            transition: all 0.1s;
+        }
+        
+        .joystick-label {
+            font-size: 12px;
+            margin-top: 5px;
+            color: #00ff00;
+        }
+        
+        .slider-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            pointer-events: auto;
+            max-width: 250px;
+        }
+        
+        .slider-group {
+            margin: 15px 0;
+        }
+        
+        .slider-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .slider-group input[type="range"] {
+            width: 100%;
+            margin: 5px 0;
+        }
+        
+        .slider-value {
+            font-size: 12px;
+            color: #00ff00;
+            text-align: center;
+        }
+        
+        .object-info {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 20px;
+            pointer-events: auto;
+            text-align: center;
+            display: none;
+        }
+        
+        .object-info.show {
+            display: block;
+        }
+        
+        .object-position {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+        
+        .object-rotation {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+        
+        .object-scale {
+            font-size: 18px;
+            margin: 10px 0;
+        }
+        
+        .trigger-status {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 20px;
+            pointer-events: auto;
+            text-align: center;
+            font-size: 24px;
+            font-weight: bold;
+        }
+        
+        .trigger-active {
+            color: #00ff00;
+            border-color: #00ff00;
+            animation: pulse 1s infinite;
+        }
+        
+        .trigger-inactive {
+            color: #ff0000;
+            border-color: #ff0000;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.5; }
+            100% { opacity: 1; }
+        }
+        
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .loading-text {
+            color: #00ff00;
+            font-size: 24px;
+            text-align: center;
+        }
+        
+        .spinner {
+            border: 4px solid #333;
+            border-top: 4px solid #00ff00;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .error-message {
+            color: #ff0000;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+        
+        .success-message {
+            color: #00ff00;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading" id="loadingScreen">
+        <div class="loading-text">
+            <div class="spinner"></div>
+            <div>Initializing Sensor Test...</div>
+            <div style="font-size: 14px; margin-top: 10px;">Please allow sensor access</div>
+        </div>
+    </div>
+
+    <!-- Main AR Scene -->
+    <a-scene
+        vr-mode-ui="enabled: false"
+        arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
+        renderer="logarithmicDepthBuffer: true;"
+        embedded
+        loading-screen="enabled: false">
+        
+        <!-- AR Camera -->
+        <a-entity camera></a-entity>
+        
+        <!-- Test 3D Object -->
+        <a-entity id="testObject" position="0 0 -1" visible="false">
+            <a-box
+                id="testBox"
+                position="0 0 0"
+                rotation="0 0 0"
+                width="1"
+                height="1"
+                depth="1"
+                material="src: testimg.jpg;"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 10000">
+            </a-box>
+            
+            <a-text
+                value="Sensor Test Object"
+                position="0 1.5 0"
+                align="center"
+                color="#ffffff"
+                font="kelsonsans"
+                width="2">
+            </a-text>
+        </a-entity>
+        
+        <!-- Environment -->
+        <a-sky color="#000000"></a-sky>
+        <a-light type="ambient" color="#ffffff" intensity="0.5"></a-light>
+        <a-light type="directional" position="0 1 0" color="#ffffff" intensity="0.8"></a-light>
+    </a-scene>
+
+    <!-- UI Overlay -->
+    <div class="ui-overlay">
+        <!-- Sensor Panel -->
+        <div class="sensor-panel">
+            <h3>Sensor Data</h3>
+            
+            <div class="sensor-group">
+                <h4>Compass</h4>
+                <div class="sensor-value">
+                    <span class="sensor-status" id="compassStatus"></span>
+                    <span id="compassValue">--</span>°
+                </div>
+                <div>Range: 100° - 150°</div>
+            </div>
+            
+            <div class="sensor-group">
+                <h4>Accelerometer</h4>
+                <div class="sensor-value">
+                    <span class="sensor-status" id="accelStatus"></span>
+                    X: <span id="accelX">--</span>
+                </div>
+                <div class="sensor-value">
+                    Y: <span id="accelY">--</span> (Target: > 5)
+                </div>
+                <div class="sensor-value">
+                    Z: <span id="accelZ">--</span>
+                </div>
+            </div>
+            
+            <div class="sensor-group">
+                <h4>Device Orientation</h4>
+                <div class="sensor-value">
+                    Alpha: <span id="alpha">--</span>°
+                </div>
+                <div class="sensor-value">
+                    Beta: <span id="beta">--</span>°
+                </div>
+                <div class="sensor-value">
+                    Gamma: <span id="gamma">--</span>°
+                </div>
+            </div>
+            
+            <div class="sensor-group">
+                <h4>Trigger Status</h4>
+                <div class="sensor-value">
+                    <span class="sensor-status" id="triggerStatus"></span>
+                    <span id="triggerText">Inactive</span>
+                </div>
+                <div>Compass: <span id="compassTrigger">--</span></div>
+                <div>Accel Y: <span id="accelTrigger">--</span></div>
+            </div>
+        </div>
+
+        <!-- Control Panel -->
+        <div class="control-panel">
+            <h3>Object Controls</h3>
+            
+            <div class="control-group">
+                <label>Compass Range:</label>
+                <input type="number" id="compassMin" value="100" min="0" max="360" placeholder="Min">
+                <input type="number" id="compassMax" value="150" min="0" max="360" placeholder="Max">
+                <button id="updateCompassRange">Update Range</button>
+            </div>
+            
+            <div class="control-group">
+                <label>Accelerometer Threshold:</label>
+                <input type="number" id="accelThreshold" value="5" min="0" max="20" step="0.1">
+                <button id="updateAccelThreshold">Update Threshold</button>
+            </div>
+            
+            <div class="control-group">
+                <label>Object Controls:</label>
+                <button id="resetObject">Reset Object</button>
+                <button id="toggleObject">Toggle Visibility</button>
+                <button id="showObjectInfo">Show Info</button>
+            </div>
+            
+            <div class="control-group">
+                <label>Sensor Controls:</label>
+                <button id="startSensors">Start Sensors</button>
+                <button id="stopSensors">Stop Sensors</button>
+                <button id="calibrateSensors">Calibrate</button>
+            </div>
+        </div>
+
+        <!-- Joystick Panel -->
+        <div class="joystick-panel">
+            <h3>Position Control</h3>
+            <div class="joystick-container">
+                <div>
+                    <div class="joystick" id="joystickX" data-axis="x">
+                        <div class="joystick-knob" id="knobX"></div>
+                    </div>
+                    <div class="joystick-label">X Axis</div>
+                </div>
+                <div>
+                    <div class="joystick" id="joystickY" data-axis="y">
+                        <div class="joystick-knob" id="knobY"></div>
+                    </div>
+                    <div class="joystick-label">Y Axis</div>
+                </div>
+                <div>
+                    <div class="joystick" id="joystickZ" data-axis="z">
+                        <div class="joystick-knob" id="knobZ"></div>
+                    </div>
+                    <div class="joystick-label">Z Axis</div>
+                </div>
+            </div>
+            <div style="margin-top: 10px;">
+                <button id="resetPosition">Reset Position</button>
+            </div>
+        </div>
+
+        <!-- Slider Panel -->
+        <div class="slider-panel">
+            <h3>Precise Control</h3>
+            
+            <div class="slider-group">
+                <label>Position X: <span id="posXValue">0.00</span></label>
+                <input type="range" id="posXSlider" min="-5" max="5" step="0.01" value="0">
+            </div>
+            
+            <div class="slider-group">
+                <label>Position Y: <span id="posYValue">0.00</span></label>
+                <input type="range" id="posYSlider" min="-5" max="5" step="0.01" value="0">
+            </div>
+            
+            <div class="slider-group">
+                <label>Position Z: <span id="posZValue">0.00</span></label>
+                <input type="range" id="posZSlider" min="-5" max="5" step="0.01" value="0">
+            </div>
+            
+            <div class="slider-group">
+                <label>Rotation X: <span id="rotXValue">0°</span></label>
+                <input type="range" id="rotXSlider" min="0" max="360" step="1" value="0">
+            </div>
+            
+            <div class="slider-group">
+                <label>Rotation Y: <span id="rotYValue">0°</span></label>
+                <input type="range" id="rotYSlider" min="0" max="360" step="1" value="0">
+            </div>
+            
+            <div class="slider-group">
+                <label>Scale: <span id="scaleValue">1.00</span></label>
+                <input type="range" id="scaleSlider" min="0.1" max="3" step="0.01" value="1">
+            </div>
+        </div>
+
+        <!-- Object Information -->
+        <div class="object-info" id="objectInfo">
+            <h3>Object Information</h3>
+            <div class="object-position">
+                Position: <span id="infoPosX">0.00</span>, <span id="infoPosY">0.00</span>, <span id="infoPosZ">0.00</span>
+            </div>
+            <div class="object-rotation">
+                Rotation: <span id="infoRotX">0°</span>, <span id="infoRotY">0°</span>, <span id="infoRotZ">0°</span>
+            </div>
+            <div class="object-scale">
+                Scale: <span id="infoScale">1.00</span>
+            </div>
+            <button id="closeObjectInfo">Close</button>
+        </div>
+
+        <!-- Trigger Status -->
+        <div class="trigger-status" id="triggerStatus">
+            <div>Sensor Trigger</div>
+            <div id="triggerStatusText">Inactive</div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let sensorData = {
+            compass: 0,
+            accelerometer: { x: 0, y: 0, z: 0 },
+            orientation: { alpha: 0, beta: 0, gamma: 0 }
+        };
+        
+        let triggerConditions = {
+            compassMin: 100,
+            compassMax: 150,
+            accelThreshold: 5
+        };
+        
+        let objectTransform = {
+            position: { x: 0, y: 0, z: 0 },
+            rotation: { x: 0, y: 0, z: 0 },
+            scale: { x: 1, y: 1, z: 1 }
+        };
+        
+        let isTriggered = false;
+        let sensorsActive = false;
+        let joystickActive = { x: false, y: false, z: false };
+
+        // DOM elements
+        const loadingScreen = document.getElementById('loadingScreen');
+        const testObject = document.getElementById('testObject');
+        const testBox = document.getElementById('testBox');
+        const compassValue = document.getElementById('compassValue');
+        const accelX = document.getElementById('accelX');
+        const accelY = document.getElementById('accelY');
+        const accelZ = document.getElementById('accelZ');
+        const alpha = document.getElementById('alpha');
+        const beta = document.getElementById('beta');
+        const gamma = document.getElementById('gamma');
+        const triggerText = document.getElementById('triggerText');
+        const compassTrigger = document.getElementById('compassTrigger');
+        const accelTrigger = document.getElementById('accelTrigger');
+        const compassStatus = document.getElementById('compassStatus');
+        const accelStatus = document.getElementById('accelStatus');
+        const triggerStatus = document.getElementById('triggerStatus');
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            initializeSensors();
+            setupEventListeners();
+            setupJoysticks();
+            setupSliders();
+            hideLoadingScreen();
+        });
+
+        // Initialize sensors
+        function initializeSensors() {
+            // Request device orientation permission (iOS)
+            if (typeof DeviceOrientationEvent !== 'undefined' && 
+                typeof DeviceOrientationEvent.requestPermission === 'function') {
+                DeviceOrientationEvent.requestPermission()
+                    .then(response => {
+                        if (response === 'granted') {
+                            console.log('Device orientation permission granted');
+                            startSensors();
+                        } else {
+                            console.log('Device orientation permission denied');
+                            showError('Compass access denied. Please enable in settings.');
+                        }
+                    })
+                    .catch(error => {
+                        console.error('Error requesting device orientation permission:', error);
+                        showError('Error accessing compass sensor');
+                    });
+            } else {
+                startSensors();
+            }
+        }
+
+        // Start sensors
+        function startSensors() {
+            if ('ondeviceorientationabsolute' in window) {
+                window.addEventListener('deviceorientationabsolute', handleOrientation);
+            } else if ('ondeviceorientation' in window) {
+                window.addEventListener('deviceorientation', handleOrientation);
+            } else {
+                console.warn('Device orientation not supported');
+            }
+
+            if ('ondevicemotion' in window) {
+                window.addEventListener('devicemotion', handleMotion);
+            } else {
+                console.warn('Device motion not supported');
+            }
+
+            sensorsActive = true;
+            updateSensorStatus();
+        }
+
+        // Stop sensors
+        function stopSensors() {
+            window.removeEventListener('deviceorientationabsolute', handleOrientation);
+            window.removeEventListener('deviceorientation', handleOrientation);
+            window.removeEventListener('devicemotion', handleMotion);
+            
+            sensorsActive = false;
+            updateSensorStatus();
+        }
+
+        // Handle device orientation
+        function handleOrientation(event) {
+            if (event.alpha !== null) {
+                sensorData.compass = event.alpha;
+                sensorData.orientation.alpha = event.alpha;
+                compassValue.textContent = Math.round(event.alpha);
+            }
+            
+            if (event.beta !== null) {
+                sensorData.orientation.beta = event.beta;
+                beta.textContent = Math.round(event.beta);
+            }
+            
+            if (event.gamma !== null) {
+                sensorData.orientation.gamma = event.gamma;
+                gamma.textContent = Math.round(event.gamma);
+            }
+            
+            checkTriggerConditions();
+        }
+
+        // Handle device motion
+        function handleMotion(event) {
+            if (event.accelerationIncludingGravity) {
+                const accel = event.accelerationIncludingGravity;
+                sensorData.accelerometer.x = accel.x || 0;
+                sensorData.accelerometer.y = accel.y || 0;
+                sensorData.accelerometer.z = accel.z || 0;
+                
+                accelX.textContent = Math.round(accel.x);
+                accelY.textContent = Math.round(accel.y);
+                accelZ.textContent = Math.round(accel.z);
+                
+                checkTriggerConditions();
+            }
+        }
+
+        // Check trigger conditions
+        function checkTriggerConditions() {
+            const compassInRange = isCompassInRange(sensorData.compass);
+            const accelYAboveThreshold = Math.abs(sensorData.accelerometer.y) > triggerConditions.accelThreshold;
+            
+            compassTrigger.textContent = compassInRange ? '✓' : '✗';
+            accelTrigger.textContent = accelYAboveThreshold ? '✓' : '✗';
+            
+            const wasTriggered = isTriggered;
+            isTriggered = compassInRange && accelYAboveThreshold;
+            
+            if (isTriggered !== wasTriggered) {
+                updateObjectVisibility(isTriggered);
+                updateTriggerStatus(isTriggered);
+            }
+        }
+
+        // Check if compass is in range
+        function isCompassInRange(compassValue) {
+            if (triggerConditions.compassMin <= triggerConditions.compassMax) {
+                return compassValue >= triggerConditions.compassMin && compassValue <= triggerConditions.compassMax;
+            } else {
+                // Handle range that crosses 0°/360°
+                return compassValue >= triggerConditions.compassMin || compassValue <= triggerConditions.compassMax;
+            }
+        }
+
+        // Update object visibility
+        function updateObjectVisibility(visible) {
+            if (testObject) {
+                testObject.setAttribute('visible', visible);
+            }
+        }
+
+        // Update trigger status
+        function updateTriggerStatus(active) {
+            const triggerElement = document.getElementById('triggerStatus');
+            const triggerTextElement = document.getElementById('triggerStatusText');
+            
+            if (active) {
+                triggerElement.className = 'trigger-status trigger-active';
+                triggerTextElement.textContent = 'ACTIVE';
+                triggerText.textContent = 'Active';
+            } else {
+                triggerElement.className = 'trigger-status trigger-inactive';
+                triggerTextElement.textContent = 'INACTIVE';
+                triggerText.textContent = 'Inactive';
+            }
+        }
+
+        // Update sensor status indicators
+        function updateSensorStatus() {
+            compassStatus.className = 'sensor-status ' + (sensorsActive ? 'status-active' : 'status-inactive');
+            accelStatus.className = 'sensor-status ' + (sensorsActive ? 'status-active' : 'status-inactive');
+            triggerStatus.className = 'sensor-status ' + (isTriggered ? 'status-active' : 'status-inactive');
+        }
+
+        // Setup joysticks
+        function setupJoysticks() {
+            const joysticks = document.querySelectorAll('.joystick');
+            
+            joysticks.forEach(joystick => {
+                const axis = joystick.dataset.axis;
+                const knob = joystick.querySelector('.joystick-knob');
+                
+                // Mouse events
+                joystick.addEventListener('mousedown', (e) => startJoystick(e, axis, knob, joystick));
+                document.addEventListener('mousemove', (e) => moveJoystick(e, axis, knob, joystick));
+                document.addEventListener('mouseup', () => stopJoystick(axis));
+                
+                // Touch events
+                joystick.addEventListener('touchstart', (e) => startJoystick(e.touches[0], axis, knob, joystick));
+                document.addEventListener('touchmove', (e) => moveJoystick(e.touches[0], axis, knob, joystick));
+                document.addEventListener('touchend', () => stopJoystick(axis));
+            });
+        }
+
+        // Start joystick interaction
+        function startJoystick(e, axis, knob, joystick) {
+            joystickActive[axis] = true;
+            joystick.style.background = 'rgba(0, 255, 0, 0.3)';
+        }
+
+        // Move joystick
+        function moveJoystick(e, axis, knob, joystick) {
+            if (!joystickActive[axis]) return;
+            
+            const rect = joystick.getBoundingClientRect();
+            const centerX = rect.left + rect.width / 2;
+            const centerY = rect.top + rect.height / 2;
+            
+            const deltaX = e.clientX - centerX;
+            const deltaY = e.clientY - centerY;
+            const distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+            const maxDistance = rect.width / 2 - 10;
+            
+            if (distance <= maxDistance) {
+                knob.style.left = (50 + (deltaX / maxDistance) * 50) + '%';
+                knob.style.top = (50 + (deltaY / maxDistance) * 50) + '%';
+                
+                // Update object position
+                const normalizedX = (deltaX / maxDistance) * 2;
+                const normalizedY = (deltaY / maxDistance) * 2;
+                
+                if (axis === 'x') {
+                    objectTransform.position.x = normalizedX;
+                    updateObjectPosition();
+                } else if (axis === 'y') {
+                    objectTransform.position.y = normalizedY;
+                    updateObjectPosition();
+                } else if (axis === 'z') {
+                    objectTransform.position.z = normalizedX;
+                    updateObjectPosition();
+                }
+            }
+        }
+
+        // Stop joystick interaction
+        function stopJoystick(axis) {
+            joystickActive[axis] = false;
+            const joystick = document.querySelector(`[data-axis="${axis}"]`);
+            const knob = joystick.querySelector('.joystick-knob');
+            
+            joystick.style.background = 'rgba(0, 0, 0, 0.5)';
+            knob.style.left = '50%';
+            knob.style.top = '50%';
+        }
+
+        // Setup sliders
+        function setupSliders() {
+            // Position sliders
+            document.getElementById('posXSlider').addEventListener('input', function() {
+                objectTransform.position.x = parseFloat(this.value);
+                updateSliderValue('posXValue', this.value);
+                updateObjectPosition();
+            });
+            
+            document.getElementById('posYSlider').addEventListener('input', function() {
+                objectTransform.position.y = parseFloat(this.value);
+                updateSliderValue('posYValue', this.value);
+                updateObjectPosition();
+            });
+            
+            document.getElementById('posZSlider').addEventListener('input', function() {
+                objectTransform.position.z = parseFloat(this.value);
+                updateSliderValue('posZValue', this.value);
+                updateObjectPosition();
+            });
+            
+            // Rotation sliders
+            document.getElementById('rotXSlider').addEventListener('input', function() {
+                objectTransform.rotation.x = parseFloat(this.value);
+                updateSliderValue('rotXValue', this.value + '°');
+                updateObjectRotation();
+            });
+            
+            document.getElementById('rotYSlider').addEventListener('input', function() {
+                objectTransform.rotation.y = parseFloat(this.value);
+                updateSliderValue('rotYValue', this.value + '°');
+                updateObjectRotation();
+            });
+            
+            // Scale slider
+            document.getElementById('scaleSlider').addEventListener('input', function() {
+                const scale = parseFloat(this.value);
+                objectTransform.scale.x = scale;
+                objectTransform.scale.y = scale;
+                objectTransform.scale.z = scale;
+                updateSliderValue('scaleValue', scale.toFixed(2));
+                updateObjectScale();
+            });
+        }
+
+        // Update slider value display
+        function updateSliderValue(elementId, value) {
+            const element = document.getElementById(elementId);
+            if (element) {
+                element.textContent = value;
+            }
+        }
+
+        // Update object position
+        function updateObjectPosition() {
+            if (testObject) {
+                const pos = objectTransform.position;
+                testObject.setAttribute('position', `${pos.x} ${pos.y} ${pos.z}`);
+            }
+        }
+
+        // Update object rotation
+        function updateObjectRotation() {
+            if (testObject) {
+                const rot = objectTransform.rotation;
+                testObject.setAttribute('rotation', `${rot.x} ${rot.y} ${rot.z}`);
+            }
+        }
+
+        // Update object scale
+        function updateObjectScale() {
+            if (testObject) {
+                const scale = objectTransform.scale;
+                testObject.setAttribute('scale', `${scale.x} ${scale.y} ${scale.z}`);
+            }
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            // Control buttons
+            document.getElementById('updateCompassRange').addEventListener('click', function() {
+                const min = parseInt(document.getElementById('compassMin').value);
+                const max = parseInt(document.getElementById('compassMax').value);
+                
+                if (min >= 0 && max <= 360 && min <= max) {
+                    triggerConditions.compassMin = min;
+                    triggerConditions.compassMax = max;
+                    console.log('Compass range updated:', triggerConditions);
+                    showSuccess('Compass range updated');
+                } else {
+                    showError('Please enter valid compass range (0-360)');
+                }
+            });
+            
+            document.getElementById('updateAccelThreshold').addEventListener('click', function() {
+                const threshold = parseFloat(document.getElementById('accelThreshold').value);
+                if (threshold >= 0) {
+                    triggerConditions.accelThreshold = threshold;
+                    console.log('Accelerometer threshold updated:', threshold);
+                    showSuccess('Accelerometer threshold updated');
+                } else {
+                    showError('Please enter valid threshold');
+                }
+            });
+            
+            document.getElementById('resetObject').addEventListener('click', function() {
+                resetObjectTransform();
+                showSuccess('Object reset');
+            });
+            
+            document.getElementById('toggleObject').addEventListener('click', function() {
+                const visible = testObject.getAttribute('visible');
+                testObject.setAttribute('visible', !visible);
+                showSuccess('Object visibility toggled');
+            });
+            
+            document.getElementById('showObjectInfo').addEventListener('click', function() {
+                document.getElementById('objectInfo').classList.add('show');
+                updateObjectInfo();
+            });
+            
+            document.getElementById('closeObjectInfo').addEventListener('click', function() {
+                document.getElementById('objectInfo').classList.remove('show');
+            });
+            
+            document.getElementById('startSensors').addEventListener('click', startSensors);
+            document.getElementById('stopSensors').addEventListener('click', stopSensors);
+            document.getElementById('calibrateSensors').addEventListener('click', calibrateSensors);
+            document.getElementById('resetPosition').addEventListener('click', resetObjectTransform);
+        }
+
+        // Reset object transform
+        function resetObjectTransform() {
+            objectTransform = {
+                position: { x: 0, y: 0, z: 0 },
+                rotation: { x: 0, y: 0, z: 0 },
+                scale: { x: 1, y: 1, z: 1 }
+            };
+            
+            updateObjectPosition();
+            updateObjectRotation();
+            updateObjectScale();
+            
+            // Reset sliders
+            document.getElementById('posXSlider').value = 0;
+            document.getElementById('posYSlider').value = 0;
+            document.getElementById('posZSlider').value = 0;
+            document.getElementById('rotXSlider').value = 0;
+            document.getElementById('rotYSlider').value = 0;
+            document.getElementById('scaleSlider').value = 1;
+            
+            updateSliderValue('posXValue', '0.00');
+            updateSliderValue('posYValue', '0.00');
+            updateSliderValue('posZValue', '0.00');
+            updateSliderValue('rotXValue', '0°');
+            updateSliderValue('rotYValue', '0°');
+            updateSliderValue('scaleValue', '1.00');
+        }
+
+        // Update object information display
+        function updateObjectInfo() {
+            document.getElementById('infoPosX').textContent = objectTransform.position.x.toFixed(2);
+            document.getElementById('infoPosY').textContent = objectTransform.position.y.toFixed(2);
+            document.getElementById('infoPosZ').textContent = objectTransform.position.z.toFixed(2);
+            document.getElementById('infoRotX').textContent = Math.round(objectTransform.rotation.x) + '°';
+            document.getElementById('infoRotY').textContent = Math.round(objectTransform.rotation.y) + '°';
+            document.getElementById('infoRotZ').textContent = Math.round(objectTransform.rotation.z) + '°';
+            document.getElementById('infoScale').textContent = objectTransform.scale.x.toFixed(2);
+        }
+
+        // Calibrate sensors
+        function calibrateSensors() {
+            // Reset sensor data
+            sensorData = {
+                compass: 0,
+                accelerometer: { x: 0, y: 0, z: 0 },
+                orientation: { alpha: 0, beta: 0, gamma: 0 }
+            };
+            
+            // Update displays
+            compassValue.textContent = '--';
+            accelX.textContent = '--';
+            accelY.textContent = '--';
+            accelZ.textContent = '--';
+            alpha.textContent = '--';
+            beta.textContent = '--';
+            gamma.textContent = '--';
+            
+            showSuccess('Sensors calibrated');
+        }
+
+        // Hide loading screen
+        function hideLoadingScreen() {
+            setTimeout(() => {
+                loadingScreen.classList.add('hidden');
+            }, 2000);
+        }
+
+        // Show error message
+        function showError(message) {
+            console.error(message);
+            // You can implement a proper error display UI here
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            console.log(message);
+            // You can implement a proper success display UI here
+        }
+
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                console.log('Page hidden - pausing sensors');
+            } else {
+                console.log('Page visible - resuming sensors');
+            }
+        });
+
+        // Handle page unload
+        window.addEventListener('beforeunload', function() {
+            if (sensorsActive) {
+                stopSensors();
+            }
+        });
+
+        // A-Frame scene loaded event
+        document.querySelector('a-scene').addEventListener('loaded', function() {
+            console.log('AR scene loaded');
+        });
+
+        // A-Frame camera initialized event
+        document.querySelector('a-scene').addEventListener('camera-init', function() {
+            console.log('AR camera initialized');
+        });
+    </script>
+</body>
+</html>

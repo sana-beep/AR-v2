@@ -1,0 +1,863 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Camera Test">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#000000">
+    
+    <title>WebAR - Camera Test</title>
+    
+    <!-- A-Frame and AR.js -->
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.min.js"></script>
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #00ff00;
+            overflow: hidden;
+        }
+        
+        .ui-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 1000;
+        }
+        
+        .camera-controls {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            pointer-events: auto;
+            max-width: 300px;
+        }
+        
+        .control-group {
+            margin: 15px 0;
+        }
+        
+        .control-group label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 14px;
+        }
+        
+        .control-group select,
+        .control-group input {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 8px;
+            border-radius: 5px;
+            width: 100%;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .control-group button {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 10px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            margin: 5px 5px 5px 0;
+            transition: all 0.3s;
+        }
+        
+        .control-group button:hover {
+            background: #00ff00;
+            color: #000;
+        }
+        
+        .camera-info {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            pointer-events: auto;
+            max-width: 300px;
+        }
+        
+        .info-item {
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        
+        .camera-feed {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            pointer-events: auto;
+            text-align: center;
+        }
+        
+        .camera-feed video {
+            width: 200px;
+            height: 150px;
+            border: 1px solid #00ff00;
+            border-radius: 5px;
+            margin-bottom: 10px;
+        }
+        
+        .camera-feed button {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 8px 15px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-family: 'Courier New', monospace;
+            margin: 5px;
+            transition: all 0.3s;
+        }
+        
+        .camera-feed button:hover {
+            background: #00ff00;
+            color: #000;
+        }
+        
+        .status-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            border: 2px solid #00ff00;
+            border-radius: 10px;
+            padding: 15px;
+            pointer-events: auto;
+            max-width: 300px;
+        }
+        
+        .status-item {
+            margin: 10px 0;
+            font-size: 12px;
+        }
+        
+        .status-indicator {
+            width: 15px;
+            height: 15px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 10px;
+        }
+        
+        .status-active {
+            background: #00ff00;
+            box-shadow: 0 0 5px #00ff00;
+        }
+        
+        .status-inactive {
+            background: #ff0000;
+        }
+        
+        .status-warning {
+            background: #ffff00;
+        }
+        
+        .loading {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            z-index: 2000;
+        }
+        
+        .loading-text {
+            color: #00ff00;
+            font-size: 24px;
+            text-align: center;
+        }
+        
+        .spinner {
+            border: 4px solid #333;
+            border-top: 4px solid #00ff00;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 20px auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none !important;
+        }
+        
+        .error-message {
+            color: #ff0000;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+        
+        .success-message {
+            color: #00ff00;
+            font-size: 14px;
+            margin: 10px 0;
+        }
+    </style>
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div class="loading" id="loadingScreen">
+        <div class="loading-text">
+            <div class="spinner"></div>
+            <div>Initializing Camera Test...</div>
+            <div style="font-size: 14px; margin-top: 10px;">Please allow camera access</div>
+        </div>
+    </div>
+
+    <!-- Main AR Scene -->
+    <a-scene
+        vr-mode-ui="enabled: false"
+        arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false;"
+        renderer="logarithmicDepthBuffer: true;"
+        embedded
+        loading-screen="enabled: false">
+        
+        <!-- AR Camera -->
+        <a-entity camera></a-entity>
+        
+        <!-- Test AR Content -->
+        <a-entity id="testContent" position="0 0 -1">
+            <a-box
+                position="0 0.5 0"
+                rotation="0 0 0"
+                width="1"
+                height="1"
+                depth="1"
+                material="color: #00ff00;"
+                animation="property: rotation; to: 0 360 0; loop: true; dur: 8000">
+            </a-box>
+            
+            <a-text
+                value="Camera Test"
+                position="0 1.5 0"
+                align="center"
+                color="#ffffff"
+                font="kelsonsans"
+                width="2">
+            </a-text>
+        </a-entity>
+        
+        <!-- Environment -->
+        <a-sky color="#000000"></a-sky>
+        <a-light type="ambient" color="#ffffff" intensity="0.5"></a-light>
+        <a-light type="directional" position="0 1 0" color="#ffffff" intensity="0.8"></a-light>
+    </a-scene>
+
+    <!-- UI Overlay -->
+    <div class="ui-overlay">
+        <!-- Camera Controls -->
+        <div class="camera-controls">
+            <h3>Camera Controls</h3>
+            
+            <div class="control-group">
+                <label>Camera Device:</label>
+                <select id="cameraSelect">
+                    <option value="">Loading cameras...</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>Camera Resolution:</label>
+                <select id="resolutionSelect">
+                    <option value="640x480">640x480</option>
+                    <option value="1280x720">1280x720</option>
+                    <option value="1920x1080">1920x1080</option>
+                    <option value="3840x2160">4K (if supported)</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <label>Frame Rate:</label>
+                <select id="frameRateSelect">
+                    <option value="30">30 FPS</option>
+                    <option value="60">60 FPS</option>
+                    <option value="120">120 FPS (if supported)</option>
+                </select>
+            </div>
+            
+            <div class="control-group">
+                <button id="startCamera">Start Camera</button>
+                <button id="stopCamera">Stop Camera</button>
+            </div>
+            
+            <div class="control-group">
+                <button id="switchCamera">Switch Camera</button>
+                <button id="refreshCameras">Refresh List</button>
+            </div>
+            
+            <div class="control-group">
+                <label>Camera Settings:</label>
+                <button id="toggleFlash">Toggle Flash</button>
+                <button id="takePhoto">Take Photo</button>
+            </div>
+        </div>
+
+        <!-- Camera Information -->
+        <div class="camera-info">
+            <h3>Camera Info</h3>
+            <div class="info-item">
+                <strong>Status:</strong> <span id="cameraStatus">Initializing</span>
+            </div>
+            <div class="info-item">
+                <strong>Device:</strong> <span id="currentDevice">--</span>
+            </div>
+            <div class="info-item">
+                <strong>Resolution:</strong> <span id="currentResolution">--</span>
+            </div>
+            <div class="info-item">
+                <strong>Frame Rate:</strong> <span id="currentFrameRate">--</span>
+            </div>
+            <div class="info-item">
+                <strong>Facing:</strong> <span id="cameraFacing">--</span>
+            </div>
+            <div class="info-item">
+                <strong>Capabilities:</strong> <span id="cameraCapabilities">--</span>
+            </div>
+        </div>
+
+        <!-- Camera Feed Display -->
+        <div class="camera-feed">
+            <h3>Camera Feed</h3>
+            <video id="cameraVideo" autoplay muted playsinline></video>
+            <div>
+                <button id="toggleFeed">Show/Hide Feed</button>
+                <button id="fullscreenFeed">Fullscreen</button>
+            </div>
+        </div>
+
+        <!-- Status Panel -->
+        <div class="status-panel">
+            <h3>System Status</h3>
+            <div class="status-item">
+                <span class="status-indicator" id="cameraIndicator"></span>
+                Camera Stream
+            </div>
+            <div class="status-item">
+                <span class="status-indicator" id="arIndicator"></span>
+                AR Scene
+            </div>
+            <div class="status-item">
+                <span class="status-indicator" id="permissionIndicator"></span>
+                Permissions
+            </div>
+            <div class="status-item">
+                <span class="status-indicator" id="deviceIndicator"></span>
+                Device Support
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // Global variables
+        let currentStream = null;
+        let currentCamera = null;
+        let availableCameras = [];
+        let isCameraActive = false;
+        let isARActive = false;
+        let hasPermissions = false;
+        let deviceSupported = false;
+
+        // DOM elements
+        const loadingScreen = document.getElementById('loadingScreen');
+        const cameraSelect = document.getElementById('cameraSelect');
+        const resolutionSelect = document.getElementById('resolutionSelect');
+        const frameRateSelect = document.getElementById('frameRateSelect');
+        const cameraVideo = document.getElementById('cameraVideo');
+        const cameraStatus = document.getElementById('cameraStatus');
+        const currentDevice = document.getElementById('currentDevice');
+        const currentResolution = document.getElementById('currentResolution');
+        const currentFrameRate = document.getElementById('currentFrameRate');
+        const cameraFacing = document.getElementById('cameraFacing');
+        const cameraCapabilities = document.getElementById('cameraCapabilities');
+        const cameraIndicator = document.getElementById('cameraIndicator');
+        const arIndicator = document.getElementById('arIndicator');
+        const permissionIndicator = document.getElementById('permissionIndicator');
+        const deviceIndicator = document.getElementById('deviceIndicator');
+
+        // Initialize the application
+        document.addEventListener('DOMContentLoaded', function() {
+            checkDeviceSupport();
+            setupEventListeners();
+            hideLoadingScreen();
+        });
+
+        // Check device support
+        function checkDeviceSupport() {
+            // Check if getUserMedia is supported
+            if (navigator.mediaDevices && navigator.mediaDevices.getUserMedia) {
+                deviceSupported = true;
+                updateDeviceIndicator(true);
+                enumerateCameras();
+            } else {
+                deviceSupported = false;
+                updateDeviceIndicator(false);
+                showError('Camera API not supported on this device');
+            }
+
+            // Check if device is mobile
+            const isMobile = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+            if (isMobile) {
+                console.log('Mobile device detected');
+            }
+        }
+
+        // Enumerate available cameras
+        async function enumerateCameras() {
+            try {
+                const devices = await navigator.mediaDevices.enumerateDevices();
+                const videoDevices = devices.filter(device => device.kind === 'videoinput');
+                
+                availableCameras = videoDevices;
+                updateCameraSelect(videoDevices);
+                
+                console.log('Available cameras:', videoDevices);
+            } catch (error) {
+                console.error('Error enumerating cameras:', error);
+                showError('Could not enumerate cameras');
+            }
+        }
+
+        // Update camera select dropdown
+        function updateCameraSelect(cameras) {
+            cameraSelect.innerHTML = '';
+            
+            if (cameras.length === 0) {
+                const option = document.createElement('option');
+                option.value = '';
+                option.textContent = 'No cameras found';
+                cameraSelect.appendChild(option);
+                return;
+            }
+
+            cameras.forEach((camera, index) => {
+                const option = document.createElement('option');
+                option.value = index;
+                option.textContent = camera.label || `Camera ${index + 1}`;
+                cameraSelect.appendChild(option);
+            });
+        }
+
+        // Start camera stream
+        async function startCamera() {
+            if (currentStream) {
+                stopCamera();
+            }
+
+            try {
+                const selectedCamera = cameraSelect.value;
+                const resolution = resolutionSelect.value;
+                const frameRate = parseInt(frameRateSelect.value);
+
+                if (selectedCamera === '') {
+                    showError('Please select a camera');
+                    return;
+                }
+
+                const constraints = {
+                    video: {
+                        deviceId: availableCameras[selectedCamera].deviceId,
+                        width: { ideal: parseInt(resolution.split('x')[0]) },
+                        height: { ideal: parseInt(resolution.split('x')[1]) },
+                        frameRate: { ideal: frameRate }
+                    }
+                };
+
+                currentStream = await navigator.mediaDevices.getUserMedia(constraints);
+                currentCamera = availableCameras[selectedCamera];
+                
+                // Set video source
+                cameraVideo.srcObject = currentStream;
+                
+                // Update AR.js camera source
+                updateARSceneCamera(currentStream);
+                
+                isCameraActive = true;
+                updateCameraStatus('Active');
+                updateCameraIndicator(true);
+                updateCameraInfo();
+                
+                console.log('Camera started successfully');
+                showSuccess('Camera started successfully');
+                
+            } catch (error) {
+                console.error('Error starting camera:', error);
+                showError('Failed to start camera: ' + error.message);
+                updateCameraStatus('Error');
+                updateCameraIndicator(false);
+            }
+        }
+
+        // Stop camera stream
+        function stopCamera() {
+            if (currentStream) {
+                currentStream.getTracks().forEach(track => track.stop());
+                currentStream = null;
+                currentCamera = null;
+                
+                cameraVideo.srcObject = null;
+                isCameraActive = false;
+                
+                updateCameraStatus('Stopped');
+                updateCameraIndicator(false);
+                clearCameraInfo();
+                
+                console.log('Camera stopped');
+                showSuccess('Camera stopped');
+            }
+        }
+
+        // Update AR scene camera
+        function updateARSceneCamera(stream) {
+            const arScene = document.querySelector('a-scene');
+            if (arScene) {
+                // Update AR.js video texture
+                const arjs = arScene.getAttribute('arjs');
+                arjs.sourceType = 'webcam';
+                arjs.videoTexture = true;
+                arScene.setAttribute('arjs', arjs);
+                
+                // Force AR.js to use the new stream
+                const arjsSystem = arScene.systems['arjs'];
+                if (arjsSystem) {
+                    arjsSystem.arProfile.onARProfileFound();
+                }
+            }
+        }
+
+        // Update camera information display
+        function updateCameraInfo() {
+            if (currentCamera) {
+                currentDevice.textContent = currentCamera.label || 'Unknown Device';
+                currentResolution.textContent = resolutionSelect.value;
+                currentFrameRate.textContent = frameRateSelect.value + ' FPS';
+                
+                // Try to get camera facing direction
+                if (currentCamera.label) {
+                    if (currentCamera.label.toLowerCase().includes('back') || 
+                        currentCamera.label.toLowerCase().includes('rear')) {
+                        cameraFacing.textContent = 'Back';
+                    } else if (currentCamera.label.toLowerCase().includes('front')) {
+                        cameraFacing.textContent = 'Front';
+                    } else {
+                        cameraFacing.textContent = 'Unknown';
+                    }
+                } else {
+                    cameraFacing.textContent = 'Unknown';
+                }
+                
+                // Get camera capabilities
+                if (currentStream) {
+                    const videoTrack = currentStream.getVideoTracks()[0];
+                    if (videoTrack && videoTrack.getCapabilities) {
+                        const capabilities = videoTrack.getCapabilities();
+                        const settings = videoTrack.getSettings();
+                        
+                        let capsText = '';
+                        if (capabilities.width) {
+                            capsText += `W: ${capabilities.width.min}-${capabilities.width.max}`;
+                        }
+                        if (capabilities.height) {
+                            capsText += ` H: ${capabilities.height.min}-${capabilities.height.max}`;
+                        }
+                        if (capabilities.frameRate) {
+                            capsText += ` FPS: ${capabilities.frameRate.min}-${capabilities.frameRate.max}`;
+                        }
+                        
+                        cameraCapabilities.textContent = capsText || 'Limited info';
+                    } else {
+                        cameraCapabilities.textContent = 'Not available';
+                    }
+                }
+            }
+        }
+
+        // Clear camera information
+        function clearCameraInfo() {
+            currentDevice.textContent = '--';
+            currentResolution.textContent = '--';
+            currentFrameRate.textContent = '--';
+            cameraFacing.textContent = '--';
+            cameraCapabilities.textContent = '--';
+        }
+
+        // Switch between front/back cameras
+        function switchCamera() {
+            if (!isCameraActive) {
+                showError('No camera active');
+                return;
+            }
+
+            const currentIndex = parseInt(cameraSelect.value);
+            let nextIndex = (currentIndex + 1) % availableCameras.length;
+            
+            // Try to find a different facing camera
+            if (availableCameras.length > 1) {
+                const currentFacing = getCameraFacing(availableCameras[currentIndex]);
+                for (let i = 0; i < availableCameras.length; i++) {
+                    if (i !== currentIndex) {
+                        const nextFacing = getCameraFacing(availableCameras[i]);
+                        if (nextFacing !== currentFacing) {
+                            nextIndex = i;
+                            break;
+                        }
+                    }
+                }
+            }
+
+            cameraSelect.value = nextIndex;
+            startCamera();
+        }
+
+        // Get camera facing direction
+        function getCameraFacing(camera) {
+            if (camera.label) {
+                if (camera.label.toLowerCase().includes('back') || 
+                    camera.label.toLowerCase().includes('rear')) {
+                    return 'back';
+                } else if (camera.label.toLowerCase().includes('front')) {
+                    return 'front';
+                }
+            }
+            return 'unknown';
+        }
+
+        // Toggle camera feed visibility
+        function toggleFeed() {
+            if (cameraVideo.style.display === 'none') {
+                cameraVideo.style.display = 'block';
+            } else {
+                cameraVideo.style.display = 'none';
+            }
+        }
+
+        // Toggle fullscreen
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                cameraVideo.requestFullscreen().catch(err => {
+                    console.error('Error attempting to enable fullscreen:', err);
+                });
+            } else {
+                document.exitFullscreen();
+            }
+        }
+
+        // Take photo
+        function takePhoto() {
+            if (!isCameraActive) {
+                showError('No camera active');
+                return;
+            }
+
+            const canvas = document.createElement('canvas');
+            canvas.width = cameraVideo.videoWidth;
+            canvas.height = cameraVideo.videoHeight;
+            
+            const ctx = canvas.getContext('2d');
+            ctx.drawImage(cameraVideo, 0, 0);
+            
+            // Create download link
+            const link = document.createElement('a');
+            link.download = 'camera-photo-' + Date.now() + '.png';
+            link.href = canvas.toDataURL();
+            link.click();
+            
+            showSuccess('Photo captured and downloaded');
+        }
+
+        // Toggle flash (if supported)
+        function toggleFlash() {
+            if (!isCameraActive) {
+                showError('No camera active');
+                return;
+            }
+
+            if (currentStream) {
+                const videoTrack = currentStream.getVideoTracks()[0];
+                if (videoTrack && videoTrack.getCapabilities && videoTrack.getCapabilities().torch) {
+                    const currentTorch = videoTrack.getSettings().torch || false;
+                    videoTrack.applyConstraints({
+                        advanced: [{ torch: !currentTorch }]
+                    }).then(() => {
+                        showSuccess('Flash ' + (!currentTorch ? 'enabled' : 'disabled'));
+                    }).catch(error => {
+                        showError('Failed to toggle flash: ' + error.message);
+                    });
+                } else {
+                    showError('Flash not supported on this camera');
+                }
+            }
+        }
+
+        // Update status indicators
+        function updateCameraIndicator(active) {
+            cameraIndicator.className = 'status-indicator ' + (active ? 'status-active' : 'status-inactive');
+        }
+
+        function updateARIndicator(active) {
+            arIndicator.className = 'status-indicator ' + (active ? 'status-active' : 'status-inactive');
+        }
+
+        function updatePermissionIndicator(hasPermission) {
+            permissionIndicator.className = 'status-indicator ' + (hasPermission ? 'status-active' : 'status-warning');
+        }
+
+        function updateDeviceIndicator(supported) {
+            deviceIndicator.className = 'status-indicator ' + (supported ? 'status-active' : 'status-inactive');
+        }
+
+        // Update camera status
+        function updateCameraStatus(status) {
+            cameraStatus.textContent = status;
+        }
+
+        // Setup event listeners
+        function setupEventListeners() {
+            document.getElementById('startCamera').addEventListener('click', startCamera);
+            document.getElementById('stopCamera').addEventListener('click', stopCamera);
+            document.getElementById('switchCamera').addEventListener('click', switchCamera);
+            document.getElementById('refreshCameras').addEventListener('click', enumerateCameras);
+            document.getElementById('toggleFlash').addEventListener('click', toggleFlash);
+            document.getElementById('takePhoto').addEventListener('click', takePhoto);
+            document.getElementById('toggleFeed').addEventListener('click', toggleFeed);
+            document.getElementById('fullscreenFeed').addEventListener('click', toggleFullscreen);
+
+            // Camera selection change
+            cameraSelect.addEventListener('change', function() {
+                if (isCameraActive) {
+                    startCamera();
+                }
+            });
+
+            // Resolution change
+            resolutionSelect.addEventListener('change', function() {
+                if (isCameraActive) {
+                    startCamera();
+                }
+            });
+
+            // Frame rate change
+            frameRateSelect.addEventListener('change', function() {
+                if (isCameraActive) {
+                    startCamera();
+                }
+            });
+        }
+
+        // Hide loading screen
+        function hideLoadingScreen() {
+            setTimeout(() => {
+                loadingScreen.classList.add('hidden');
+            }, 2000);
+        }
+
+        // Show error message
+        function showError(message) {
+            console.error(message);
+            // You can implement a proper error display UI here
+        }
+
+        // Show success message
+        function showSuccess(message) {
+            console.log(message);
+            // You can implement a proper success display UI here
+        }
+
+        // Request camera permissions
+        async function requestCameraPermission() {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                stream.getTracks().forEach(track => track.stop());
+                hasPermissions = true;
+                updatePermissionIndicator(true);
+                console.log('Camera permission granted');
+            } catch (error) {
+                hasPermissions = false;
+                updatePermissionIndicator(false);
+                console.error('Camera permission denied:', error);
+                showError('Camera permission denied. Please enable camera access.');
+            }
+        }
+
+        // Request permissions on page load
+        requestCameraPermission();
+
+        // Handle page visibility changes
+        document.addEventListener('visibilitychange', function() {
+            if (document.hidden) {
+                console.log('Page hidden - camera may pause');
+            } else {
+                console.log('Page visible - camera resuming');
+            }
+        });
+
+        // Handle page unload
+        window.addEventListener('beforeunload', function() {
+            if (currentStream) {
+                stopCamera();
+            }
+        });
+
+        // A-Frame scene loaded event
+        document.querySelector('a-scene').addEventListener('loaded', function() {
+            console.log('AR scene loaded');
+            updateARIndicator(true);
+        });
+
+        // A-Frame camera initialized event
+        document.querySelector('a-scene').addEventListener('camera-init', function() {
+            console.log('AR camera initialized');
+        });
+
+        // A-Frame camera stream initialized event
+        document.querySelector('a-scene').addEventListener('camera-stream-initialized', function() {
+            console.log('AR camera stream initialized');
+        });
+
+        // Handle camera errors
+        window.addEventListener('error', function(event) {
+            if (event.error && event.error.name === 'NotAllowedError') {
+                showError('Camera access denied. Please check permissions.');
+                updatePermissionIndicator(false);
+            }
+        });
+    </script>
+</body>
+</html>
