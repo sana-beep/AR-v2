@@ -1,0 +1,756 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebAR - Surface Detection</title>
+    <script src="https://aframe.io/releases/1.4.2/aframe.min.js"></script>
+    <script src="https://raw.githack.com/AR-js-org/AR.js/master/aframe/build/aframe-ar.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Courier New', monospace;
+            background: #000;
+            color: #00ff00;
+            overflow: hidden;
+            position: relative;
+        }
+
+        /* AR Scene - Full Screen */
+        .a-canvas {
+            position: absolute !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            z-index: 1;
+        }
+
+        /* Main Control Panel - Fixed Position */
+        .main-controls {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff00;
+            border-radius: 8px;
+            padding: 15px;
+            z-index: 1000;
+        }
+
+        .main-controls h3 {
+            color: #00ff00;
+            margin-bottom: 15px;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .control-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 10px;
+            align-items: center;
+            flex-wrap: wrap;
+            justify-content: center;
+        }
+
+        .control-row select,
+        .control-row input {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            min-width: 120px;
+        }
+
+        .control-row button {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+            white-space: nowrap;
+        }
+
+        .control-row button:hover {
+            background: #00ff00;
+            color: #000;
+        }
+
+        .control-row button.active {
+            background: #00ff00;
+            color: #000;
+        }
+
+        /* Gesture Mode Indicator */
+        .mode-indicator {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.9);
+            border: 3px solid #00ff00;
+            border-radius: 10px;
+            padding: 20px;
+            text-align: center;
+            z-index: 999;
+            font-size: 18px;
+            min-width: 200px;
+            display: none;
+        }
+
+        .mode-indicator.show {
+            display: block;
+        }
+
+        .mode-indicator.move { border-color: #00ff00; color: #00ff00; }
+        .mode-indicator.rotate { border-color: #ffff00; color: #ffff00; }
+        .mode-indicator.scale { border-color: #ff00ff; color: #ff00ff; }
+
+        /* Object Management Panel */
+        .object-panel {
+            position: fixed;
+            bottom: 10px;
+            left: 10px;
+            right: 10px;
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff00;
+            border-radius: 8px;
+            padding: 15px;
+            z-index: 1000;
+            max-height: 200px;
+            overflow-y: auto;
+        }
+
+        .object-panel h3 {
+            color: #00ff00;
+            margin-bottom: 15px;
+            font-size: 16px;
+            text-align: center;
+        }
+
+        .object-list {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+            margin-bottom: 15px;
+        }
+
+        .object-item {
+            background: rgba(0, 255, 0, 0.1);
+            border: 1px solid #00ff00;
+            border-radius: 4px;
+            padding: 8px;
+            font-size: 11px;
+        }
+
+        .object-item h4 {
+            color: #00ff00;
+            margin-bottom: 5px;
+            font-size: 12px;
+        }
+
+        .object-item p {
+            margin-bottom: 3px;
+            font-size: 10px;
+        }
+
+        .object-actions {
+            display: flex;
+            gap: 5px;
+            margin-top: 5px;
+        }
+
+        .object-actions button {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 3px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 9px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .object-actions button:hover {
+            background: #00ff00;
+            color: #000;
+        }
+
+        .object-actions button.delete {
+            border-color: #ff0000;
+            color: #ff0000;
+        }
+
+        .object-actions button.delete:hover {
+            background: #ff0000;
+            color: #000;
+        }
+
+        /* Action Buttons */
+        .action-buttons {
+            display: flex;
+            gap: 10px;
+            justify-content: center;
+            flex-wrap: wrap;
+        }
+
+        .action-btn {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 8px 15px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 12px;
+            font-family: 'Courier New', monospace;
+        }
+
+        .action-btn:hover {
+            background: #00ff00;
+            color: #000;
+        }
+
+        /* Instructions Panel */
+        .instructions-panel {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(0, 0, 0, 0.95);
+            border: 2px solid #00ff00;
+            border-radius: 8px;
+            padding: 20px;
+            z-index: 1001;
+            max-width: 350px;
+            text-align: center;
+            display: none;
+        }
+
+        .instructions-panel.show {
+            display: block;
+        }
+
+        .instructions-panel h3 {
+            margin-bottom: 15px;
+            color: #00ff00;
+        }
+
+        .instructions-panel p {
+            margin-bottom: 10px;
+            font-size: 14px;
+            line-height: 1.4;
+        }
+
+        .close-btn {
+            background: #000;
+            border: 1px solid #00ff00;
+            color: #00ff00;
+            padding: 8px 20px;
+            border-radius: 4px;
+            cursor: pointer;
+            margin-top: 15px;
+            font-family: 'Courier New', monospace;
+        }
+
+        /* Responsive Design */
+        @media (max-width: 480px) {
+            .main-controls, .object-panel {
+                padding: 10px;
+                margin: 5px;
+            }
+            
+            .control-row {
+                flex-direction: column;
+                align-items: stretch;
+            }
+            
+            .control-row select,
+            .control-row input {
+                min-width: auto;
+            }
+            
+            .object-list {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+            
+            .action-buttons {
+                flex-direction: column;
+            }
+        }
+
+        /* Hide AR.js stats */
+        .a-enter-vr, .a-orientation-modal {
+            display: none !important;
+        }
+    </style>
+</head>
+<body>
+    <!-- AR Scene -->
+    <a-scene 
+        vr-mode-ui="enabled: false"
+        embedded
+        arjs="sourceType: webcam; videoTexture: true; debugUIEnabled: false; detectionMode: mono_and_matrix; matrixCodeType: 3x3;"
+        renderer="logarithmicDepthBuffer: true;"
+        style="position: absolute; top: 0; left: 0; width: 100vw; height: 100vh;">
+        
+        <!-- Camera -->
+        <a-entity camera></a-entity>
+        
+        <!-- Surface Detection Plane -->
+        <a-plane 
+            id="surface-plane"
+            position="0 0 0"
+            rotation="-90 0 0"
+            width="1"
+            height="1"
+            material="color: #00ff00; opacity: 0.3; transparent: true;"
+            visible="false">
+        </a-plane>
+        
+        <!-- AR.js Marker -->
+        <a-marker preset="hiro">
+            <a-box position="0 0.5 0" material="color: yellow;"></a-box>
+        </a-marker>
+    </a-scene>
+
+    <!-- Main Control Panel -->
+    <div class="main-controls">
+        <h3>🎯 SURFACE DETECTION & OBJECT PLACEMENT</h3>
+        
+        <div class="control-row">
+            <label>Object Type:</label>
+            <select id="object-type">
+                <option value="box">📦 Box</option>
+                <option value="sphere">🔵 Sphere</option>
+                <option value="cylinder">🔘 Cylinder</option>
+                <option value="custom">🖼️ Custom Image</option>
+            </select>
+            <button onclick="placeObject()">🎯 Place Object</button>
+        </div>
+
+        <div class="control-row">
+            <button onclick="setMode('move')" id="move-btn" class="active">🚶 Move</button>
+            <button onclick="setMode('rotate')" id="rotate-btn">🔄 Rotate</button>
+            <button onclick="setMode('scale')" id="scale-btn">📏 Scale</button>
+            <button onclick="toggleInstructions()">📖 Help</button>
+        </div>
+    </div>
+
+    <!-- Gesture Mode Indicator -->
+    <div class="mode-indicator" id="mode-indicator">
+        <div id="mode-text">MOVE MODE</div>
+        <div>Tap and drag to move objects</div>
+    </div>
+
+    <!-- Object Management Panel -->
+    <div class="object-panel">
+        <h3>📋 OBJECT MANAGEMENT</h3>
+        
+        <div class="object-list" id="object-list">
+            <div class="object-item">
+                <h4>No objects placed</h4>
+                <p>Tap "Place Object" to start</p>
+            </div>
+        </div>
+
+        <div class="action-buttons">
+            <button class="action-btn" onclick="exportScene()">💾 Export Scene</button>
+            <button class="action-btn" onclick="importScene()">📂 Import Scene</button>
+            <button class="action-btn" onclick="clearScene()">🗑️ Clear All</button>
+            <button class="action-btn" onclick="goBack()">🏠 Back to Main</button>
+        </div>
+    </div>
+
+    <!-- Instructions Panel -->
+    <div class="instructions-panel" id="instructions">
+        <h3>🚀 Surface Detection Guide</h3>
+        <p><strong>1. Point your camera</strong> at a flat surface</p>
+        <p><strong>2. Tap "Place Object"</strong> to add 3D objects</p>
+        <p><strong>3. Use gesture modes:</strong></p>
+        <p>• <strong>Move:</strong> Drag to reposition</p>
+        <p>• <strong>Rotate:</strong> Drag to rotate</p>
+        <p>• <strong>Scale:</strong> Drag to resize</p>
+        <p><strong>4. Manage objects</strong> in the panel below</p>
+        <button class="close-btn" onclick="toggleInstructions()">Got it!</button>
+    </div>
+
+    <script>
+        // Global variables
+        let currentMode = 'move';
+        let placedObjects = [];
+        let selectedObject = null;
+        let isDragging = false;
+        let dragStart = { x: 0, y: 0 };
+        let objectCounter = 0;
+
+        // DOM elements
+        const objectTypeSelect = document.getElementById('object-type');
+        const moveBtn = document.getElementById('move-btn');
+        const rotateBtn = document.getElementById('rotate-btn');
+        const scaleBtn = document.getElementById('scale-btn');
+        const modeIndicator = document.getElementById('mode-indicator');
+        const modeText = document.getElementById('mode-text');
+        const objectList = document.getElementById('object-list');
+        const instructions = document.getElementById('instructions');
+
+        // Initialize scene
+        function initScene() {
+            // Add click event to scene for object placement
+            const scene = document.querySelector('a-scene');
+            scene.addEventListener('click', handleSceneClick);
+            
+            // Add touch events for mobile
+            scene.addEventListener('touchstart', handleTouchStart);
+            scene.addEventListener('touchmove', handleTouchMove);
+            scene.addEventListener('touchend', handleTouchEnd);
+            
+            // Add mouse events for desktop
+            scene.addEventListener('mousedown', handleMouseDown);
+            scene.addEventListener('mousemove', handleMouseMove);
+            scene.addEventListener('mouseup', handleMouseUp);
+        }
+
+        // Set gesture mode
+        function setMode(mode) {
+            currentMode = mode;
+            
+            // Update button states
+            moveBtn.classList.remove('active');
+            rotateBtn.classList.remove('active');
+            scaleBtn.classList.remove('active');
+            
+            if (mode === 'move') {
+                moveBtn.classList.add('active');
+                modeText.textContent = 'MOVE MODE';
+                modeIndicator.className = 'mode-indicator show move';
+            } else if (mode === 'rotate') {
+                rotateBtn.classList.add('active');
+                modeText.textContent = 'ROTATE MODE';
+                modeIndicator.className = 'mode-indicator show rotate';
+            } else if (mode === 'scale') {
+                scaleBtn.classList.add('active');
+                modeText.textContent = 'SCALE MODE';
+                modeIndicator.className = 'mode-indicator show scale';
+            }
+            
+            // Hide mode indicator after 2 seconds
+            setTimeout(() => {
+                modeIndicator.classList.remove('show');
+            }, 2000);
+        }
+
+        // Handle scene click for object placement
+        function handleSceneClick(event) {
+            if (event.target.tagName === 'A-ENTITY' || event.target.tagName === 'A-BOX' || 
+                event.target.tagName === 'A-SPHERE' || event.target.tagName === 'A-CYLINDER') {
+                return; // Don't place objects on existing objects
+            }
+            
+            // Get click position
+            const clickPosition = event.detail.intersection.point;
+            placeObjectAt(clickPosition);
+        }
+
+        // Place object at specific position
+        function placeObjectAt(position) {
+            const objectType = objectTypeSelect.value;
+            const scene = document.querySelector('a-scene');
+            
+            let entity;
+            
+            if (objectType === 'box') {
+                entity = document.createElement('a-box');
+                entity.setAttribute('width', '0.5');
+                entity.setAttribute('height', '0.5');
+                entity.setAttribute('depth', '0.5');
+                entity.setAttribute('material', 'color: #00ff00');
+            } else if (objectType === 'sphere') {
+                entity = document.createElement('a-sphere');
+                entity.setAttribute('radius', '0.25');
+                entity.setAttribute('material', 'color: #00ff00');
+            } else if (objectType === 'cylinder') {
+                entity = document.createElement('a-cylinder');
+                entity.setAttribute('radius', '0.25');
+                entity.setAttribute('height', '0.5');
+                entity.setAttribute('material', 'color: #00ff00');
+            } else if (objectType === 'custom') {
+                entity = document.createElement('a-box');
+                entity.setAttribute('width', '0.5');
+                entity.setAttribute('height', '0.5');
+                entity.setAttribute('depth', '0.5');
+                entity.setAttribute('material', 'src: testimg.jpg');
+            }
+            
+            // Set position and add to scene
+            entity.setAttribute('position', `${position.x} ${position.y} ${position.z}`);
+            entity.setAttribute('id', `object-${objectCounter}`);
+            
+            scene.appendChild(entity);
+            
+            // Add to placed objects list
+            const objectInfo = {
+                id: `object-${objectCounter}`,
+                type: objectType,
+                position: position,
+                entity: entity
+            };
+            
+            placedObjects.push(objectInfo);
+            objectCounter++;
+            
+            // Update object list
+            updateObjectList();
+        }
+
+        // Place object (called from button)
+        function placeObject() {
+            // Place at center of screen for now
+            const position = { x: 0, y: 0, z: -1 };
+            placeObjectAt(position);
+        }
+
+        // Update object list display
+        function updateObjectList() {
+            if (placedObjects.length === 0) {
+                objectList.innerHTML = `
+                    <div class="object-item">
+                        <h4>No objects placed</h4>
+                        <p>Tap "Place Object" to start</p>
+                    </div>
+                `;
+                return;
+            }
+            
+            objectList.innerHTML = '';
+            placedObjects.forEach((obj, index) => {
+                const objectItem = document.createElement('div');
+                objectItem.className = 'object-item';
+                objectItem.innerHTML = `
+                    <h4>${obj.type.toUpperCase()} ${index + 1}</h4>
+                    <p>ID: ${obj.id}</p>
+                    <p>Pos: ${obj.position.x.toFixed(2)}, ${obj.position.y.toFixed(2)}, ${obj.position.z.toFixed(2)}</p>
+                    <div class="object-actions">
+                        <button onclick="selectObject('${obj.id}')">Select</button>
+                        <button onclick="deleteObject('${obj.id}')" class="delete">Delete</button>
+                    </div>
+                `;
+                objectList.appendChild(objectItem);
+            });
+        }
+
+        // Select object
+        function selectObject(objectId) {
+            selectedObject = placedObjects.find(obj => obj.id === objectId);
+            if (selectedObject) {
+                // Highlight selected object
+                selectedObject.entity.setAttribute('material', 'color: #ffff00');
+            }
+        }
+
+        // Delete object
+        function deleteObject(objectId) {
+            const index = placedObjects.findIndex(obj => obj.id === objectId);
+            if (index !== -1) {
+                const obj = placedObjects[index];
+                obj.entity.remove();
+                placedObjects.splice(index, 1);
+                updateObjectList();
+                
+                if (selectedObject && selectedObject.id === objectId) {
+                    selectedObject = null;
+                }
+            }
+        }
+
+        // Touch event handlers
+        function handleTouchStart(event) {
+            if (event.touches.length === 1 && selectedObject) {
+                isDragging = true;
+                dragStart.x = event.touches[0].clientX;
+                dragStart.y = event.touches[0].clientY;
+            }
+        }
+
+        function handleTouchMove(event) {
+            if (isDragging && selectedObject) {
+                event.preventDefault();
+                const touch = event.touches[0];
+                const deltaX = touch.clientX - dragStart.x;
+                const deltaY = touch.clientY - dragStart.y;
+                
+                applyTransformation(deltaX, deltaY);
+                
+                dragStart.x = touch.clientX;
+                dragStart.y = touch.clientY;
+            }
+        }
+
+        function handleTouchEnd() {
+            isDragging = false;
+        }
+
+        // Mouse event handlers
+        function handleMouseDown(event) {
+            if (selectedObject) {
+                isDragging = true;
+                dragStart.x = event.clientX;
+                dragStart.y = event.clientY;
+            }
+        }
+
+        function handleMouseMove(event) {
+            if (isDragging && selectedObject) {
+                const deltaX = event.clientX - dragStart.x;
+                const deltaY = event.clientY - dragStart.y;
+                
+                applyTransformation(deltaX, deltaY);
+                
+                dragStart.x = event.clientX;
+                dragStart.y = event.clientY;
+            }
+        }
+
+        function handleMouseUp() {
+            isDragging = false;
+        }
+
+        // Apply transformation based on current mode
+        function applyTransformation(deltaX, deltaY) {
+            if (!selectedObject) return;
+            
+            const entity = selectedObject.entity;
+            const currentPos = entity.getAttribute('position');
+            const currentRotation = entity.getAttribute('rotation');
+            const currentScale = entity.getAttribute('scale');
+            
+            if (currentMode === 'move') {
+                // Move object
+                const newX = currentPos.x + deltaX * 0.01;
+                const newY = currentPos.y - deltaY * 0.01;
+                entity.setAttribute('position', `${newX} ${newY} ${currentPos.z}`);
+                
+                // Update stored position
+                selectedObject.position = { x: newX, y: newY, z: currentPos.z };
+            } else if (currentMode === 'rotate') {
+                // Rotate object
+                const newRotationY = currentRotation.y + deltaX * 0.5;
+                entity.setAttribute('rotation', `${currentRotation.x} ${newRotationY} ${currentRotation.z}`);
+            } else if (currentMode === 'scale') {
+                // Scale object
+                const scaleFactor = 1 + deltaX * 0.01;
+                const newScale = currentScale.x * scaleFactor;
+                entity.setAttribute('scale', `${newScale} ${newScale} ${newScale}`);
+            }
+            
+            // Update object list
+            updateObjectList();
+        }
+
+        // Export scene data
+        function exportScene() {
+            const sceneData = {
+                objects: placedObjects.map(obj => ({
+                    type: obj.type,
+                    position: obj.position,
+                    rotation: obj.entity.getAttribute('rotation'),
+                    scale: obj.entity.getAttribute('scale')
+                }))
+            };
+            
+            const dataStr = JSON.stringify(sceneData, null, 2);
+            const dataBlob = new Blob([dataStr], { type: 'application/json' });
+            
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(dataBlob);
+            link.download = `ar-scene-${Date.now()}.json`;
+            link.click();
+        }
+
+        // Import scene data
+        function importScene() {
+            const input = document.createElement('input');
+            input.type = 'file';
+            input.accept = '.json';
+            input.onchange = (event) => {
+                const file = event.target.files[0];
+                if (file) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        try {
+                            const sceneData = JSON.parse(e.target.result);
+                            loadScene(sceneData);
+                        } catch (error) {
+                            alert('Error loading scene: ' + error.message);
+                        }
+                    };
+                    reader.readAsText(file);
+                }
+            };
+            input.click();
+        }
+
+        // Load scene from data
+        function loadScene(sceneData) {
+            // Clear existing objects
+            clearScene();
+            
+            // Load new objects
+            sceneData.objects.forEach(obj => {
+                const position = obj.position;
+                placeObjectAt(position);
+                
+                // Apply saved transformations
+                const lastEntity = placedObjects[placedObjects.length - 1].entity;
+                if (obj.rotation) lastEntity.setAttribute('rotation', obj.rotation);
+                if (obj.scale) lastEntity.setAttribute('scale', obj.scale);
+            });
+        }
+
+        // Clear all objects
+        function clearScene() {
+            placedObjects.forEach(obj => {
+                obj.entity.remove();
+            });
+            placedObjects = [];
+            selectedObject = null;
+            updateObjectList();
+        }
+
+        // Toggle instructions
+        function toggleInstructions() {
+            instructions.classList.toggle('show');
+        }
+
+        // Go back to main page
+        function goBack() {
+            window.location.href = 'index.html';
+        }
+
+        // Initialize when page loads
+        window.addEventListener('load', () => {
+            initScene();
+            setMode('move');
+        });
+
+        // Handle page visibility change
+        document.addEventListener('visibilitychange', () => {
+            if (document.hidden) {
+                isDragging = false;
+            }
+        });
+    </script>
+</body>
+</html>
